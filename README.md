@@ -1,247 +1,169 @@
 # WMS Data Platform
 
-Plataforma de dados moderna para Oracle WMS, desenhada para demonstrar engenharia de dados ponta a ponta em AWS.
+## Visão geral
+O WMS Data Platform é um projeto de engenharia de dados e IA aplicado a operações de warehouse management.
 
-O projeto combina ingestao batch e CDC, lakehouse com Apache Iceberg no S3, Glue Catalog, transformacoes com dbt + Glue, serving analitico com Redshift Serverless e uma camada de AI conversacional com agentes especializados.
+O objetivo é construir uma plataforma moderna de dados com:
+- extração de dados de Oracle WMS
+- lakehouse em S3 + Iceberg
+- catálogo via Glue
+- transformação com dbt
+- serving analítico
+- API FastAPI
+- base futura para agentes analíticos
 
-## Objetivo
+## Objetivo do projeto
+Demonstrar uma arquitetura de dados moderna, profissional e explicável de ponta a ponta, cobrindo:
 
-Este repositorio foi pensado como projeto de portfolio com foco em arquitetura realista, boas praticas de cloud, seguranca, observabilidade e AI aplicada a analytics operacional.
+- ingestão
+- contratos de dados
+- governança de camadas
+- serving analítico
+- API
+- observabilidade
+- infraestrutura como código
 
-A ideia central e responder perguntas como:
+## Escopo atual do MVP
+O MVP está focado em 3 entidades principais:
+- orders
+- inventory
+- movements
 
-- como estruturar um pipeline WMS moderno em AWS?
-- como sair de Oracle operacional para lakehouse + warehouse analitico?
-- como usar runbooks e documentacao como memoria semantica para agentes?
-- como entregar um projeto que pareca proximo de um ambiente real de engenharia de dados?
+Essas entidades foram escolhidas por sustentarem melhor:
+- operação
+- analytics
+- dashboards
+- API
+- futura camada de agentes
 
-## Arquitetura Escolhida
+## Arquitetura resumida
+Fluxo principal:
 
-Stack principal do projeto:
+1. Oracle WMS como origem
+2. extração incremental e snapshots
+3. persistência em bronze
+4. normalização em silver
+5. transformação com dbt
+6. serving analítico
+7. consumo via API, dashboards e agentes
 
-- `Oracle WMS` como sistema de origem
-- `S3 + Apache Iceberg` como lakehouse em camadas `bronze`, `silver` e `gold`, com naming corporativo por ambiente, regiao e conta
-- `AWS Glue Catalog` como catalogo das tabelas Iceberg
-- `dbt + AWS Glue (Spark)` para transformacoes
-- `Redshift Serverless` para serving analitico e consultas de produto
-- `FastAPI` como camada de servico
-- `Qdrant` como memoria vetorial para runbooks e documentacao
-- `LangChain/CrewAI` para agentes
-- `Airflow` para orquestracao
-- `Terraform` para infraestrutura como codigo
+## Stack principal
+- AWS S3
+- Apache Iceberg
+- AWS Glue Data Catalog
+- dbt
+- Redshift
+- FastAPI
+- Terraform
+- GitHub Actions
 
-## Fluxo de Dados
+## Estrutura principal do projeto
+- `infra/terraform/`
+- `pipelines/`
+- `transform/dbt_wms/`
+- `app/api/`
+- `app/agents/`
+- `tests/`
+- `docs/`
+- `.claude/`
 
-```text
-Oracle WMS
-  -> extracao batch e CDC
-  -> S3 Bronze (Iceberg)
-  -> dbt + Glue
-  -> S3 Silver (Iceberg)
-  -> dbt + Glue
-  -> S3 Gold (Iceberg)
-  -> Redshift Serverless
-  -> API / dashboards / agentes
-```
-
-Camada semantica:
-
-```text
-docs/runbooks + ADRs + documentacao tecnica
-  -> embeddings
-  -> Qdrant
-  -> ResearchAgent
-  -> ReporterAgent
-```
-
-## Agentes
-
-O projeto usa uma biblioteca de agents herdada da base `semana-ai-data-engineer`, mas com contexto de dominio proprio para WMS.
-
-Agentes principais do produto:
-
-- `AnalystAgent`: consultas SQL e metricas exatas sobre marts e views analiticas
-- `ResearchAgent`: recuperacao semantica sobre runbooks, ADRs, incidentes e docs
-- `ReporterAgent`: sintese final combinando contexto estruturado e semantico
-- `wms-platform-builder`: agente de dominio para scaffolding e implementacao do projeto
-
-## Decisoes Arquiteturais Principais
-
-- `Iceberg` como formato de tabela oficial do lakehouse
-- `Glue Catalog` como catalogo central das tabelas
-- `Glue (Spark)` como engine principal de transformacao
-- `Redshift Serverless` como camada de serving
-- `Terraform` com ambientes `dev` e `prod`
-- `Lambda` para componentes serverless do produto e ingestao
-
-ADRs atuais:
-
-- [ADR 001](docs/adr/001-delta-lake-vs-parquet.md)
-- [ADR 002](docs/adr/002-glue-vs-redshift-transform.md)
-- [ADR 003](docs/adr/003-serverless-vs-ec2.md)
-
-## Estrutura do Repositorio
-
-```text
-.
-├── .github/workflows/          # CI/CD, seguranca, docs, deploys
-├── infra/terraform/            # modulos e ambientes AWS
-├── pipelines/                  # DAGs, extractors, handlers e checkpoints
-├── transform/dbt_wms/          # projeto dbt
-├── app/api/                    # FastAPI
-├── app/agents/                 # agentes de dominio
-├── tests/                      # unit, integration, api, agents
-├── docs/                       # arquitetura, ADRs, runbooks, imagens
-├── .claude/                    # KB, agents, comandos e contexto local
-├── docker-compose.yml          # ambiente local
-├── devcontainer.json           # dev container para VS Code
-├── Makefile
-├── requirements.txt
-└── .env.example
-```
-
-## Estado Atual
-
-O repositorio esta em fase de scaffold, mas ja contem uma base coerente para evolucao:
-
-- estrutura de pastas alinhada a arquitetura
-- primeira leva de modulos Terraform essenciais
-- base de API FastAPI
-- placeholders de pipelines e agentes
-- KB WMS para uso com Claude
-- workflows iniciais de CI/CD
-- documentacao arquitetural e ADRs
-
-O que ja esta criado:
-
-- modulos Terraform iniciais para `iam`, `s3`, `secrets`, `lambda` e `monitoring`
-- ambientes `dev` e `prod`
-- `README`, `CLAUDE.md`, KB WMS e ADRs
-- API minima com endpoint `/health`
-
-## Bootstrap na AWS
-
-Como a conta AWS ja foi criada, o proximo passo pratico e preparar o backend remoto do Terraform.
-
-### 1. Configurar credenciais AWS
-
-```bash
-aws configure
-```
-
-Sugestao:
-
-- region: `us-east-1`
-- output: `json`
-
-### 2. Criar recursos do backend remoto
-
-O backend do Terraform nao se cria sozinho. Antes do primeiro `terraform init`, voce precisa criar:
-
-- bucket `wms-data-platform-tf-state-896159010925`
-- tabela DynamoDB `wms-tf-locks`
-
-### 3. Inicializar o ambiente `dev`
-
-```bash
-cd infra/terraform/envs/dev
-terraform init
-terraform plan
-```
-
-## Desenvolvimento Local
-
-### Setup inicial
-
-```bash
-make setup
-```
-
-### Comandos principais
-
-```bash
-make lint
-make test
-make api-dev
-make tf-plan
-make tf-apply
-```
-
-## Data Model
-
-Resumo atual:
+## Camadas de dados
 
 ### Bronze
+Responsável por:
+- persistência bruta
+- rastreabilidade
+- replay
+- auditoria
 
-- `bronze_orders`
-- `bronze_inventory`
-- `bronze_movements`
-- `bronze_tasks`
-- `bronze_operators`
-- `bronze_master_data`
+Bucket:
+- `s3://wms-dp-dev-bronze-us-east-1-896159010925/`
 
 ### Silver
+Responsável por:
+- tipagem
+- normalização
+- deduplicação
+- padronização
 
-- `silver_orders`
-- `silver_inventory_snapshot`
-- `silver_movements`
-- `silver_tasks`
-- `silver_operator_activity`
-- `silver_locations_geo`
+Entidades do MVP:
+- `silver.orders`
+- `silver.inventory`
+- `silver.movements`
 
-### Gold
+### Gold / Serving
+Responsável por:
+- fatos e dimensões analíticas
+- serving para API
+- base para dashboards e agentes
 
-- `mart_picking_performance`
-- `mart_inventory_health`
-- `mart_order_sla`
-- `mart_operator_productivity`
-- `mart_stockout_risk`
-- `mart_geo_performance`
-- `mart_geo_inventory`
-- `mart_weather_impact`
+Modelos iniciais:
+- `fct_orders`
+- `fct_inventory_snapshot`
+- `fct_movements`
+- `dim_products`
 
-## Observabilidade e Seguranca
+## API do MVP
+Endpoints disponíveis ou previstos:
+- `/health`
+- `/metadata`
+- `/orders/summary`
+- `/inventory/snapshot`
+- `/movements/summary`
 
-Camadas planejadas:
+## Infraestrutura
+A infraestrutura é provisionada com Terraform e hoje cobre principalmente:
+- backend remoto com S3 + DynamoDB lock
+- IAM
+- KMS
+- Secrets Manager
+- buckets S3
+- monitoring básico
+- ECR
 
-- `CloudWatch` para logs, metricas, alarms e dashboard
-- `SNS` para alertas
-- `LangFuse` para observabilidade da camada de AI
-- `DeepEval` para avaliacao dos agentes
-- `KMS`, `Secrets Manager`, `WAF`, `CloudTrail`, `GuardDuty` e `AWS Config`
+## Convenção de nomes
+Os buckets seguem um padrão mais corporativo e globalmente único:
 
-## Roadmap
+- `wms-dp-dev-bronze-us-east-1-896159010925`
+- `wms-dp-dev-silver-us-east-1-896159010925`
+- `wms-dp-dev-gold-us-east-1-896159010925`
+- `wms-dp-dev-artifacts-us-east-1-896159010925`
+- `wms-dp-dev-query-results-us-east-1-896159010925`
+- `wms-dp-dev-frontend-us-east-1-896159010925`
 
-### Fase 1
+Terraform backend:
+- bucket: `wms-data-platform-tf-state-896159010925`
+- dynamodb table: `wms-tf-locks`
 
-- bootstrap AWS
-- backend remoto do Terraform
-- modulos base de infra
+## Status atual
+Neste momento o projeto já possui:
+- fundação Terraform funcional
+- backend remoto do Terraform configurado
+- bucket naming profissional
+- ECR criado
+- contratos documentados para source, bronze, silver e serving
+- API MVP estruturada
+- dbt inicial estruturado
+- documentação arquitetural em evolução
 
-### Fase 2
+## Documentação principal
+- `docs/architecture.md`
+- `docs/source-system-contract.md`
+- `docs/entity-to-extractor-mapping.md`
+- `docs/mvp-scope.md`
+- `docs/mvp-extractors-spec.md`
+- `docs/bronze-contract.md`
+- `docs/checkpoint-strategy.md`
+- `docs/silver-contract.md`
+- `docs/serving-strategy.md`
+- `docs/redshift-query-contract.md`
+- `docs/redshift-adapter-plan.md`
+- `docs/api-serving-integration.md`
 
-- extractor Oracle e checkpoint incremental
-- primeiro dataset em bronze
-- Glue Catalog e primeiros jobs
-
-### Fase 3
-
-- modelos dbt `staging`, `intermediate` e `marts`
-- serving no Redshift Serverless
-- API operacional inicial
-
-### Fase 4
-
-- ResearchAgent + Qdrant
-- ReporterAgent
-- avaliacao com DeepEval e tracing com LangFuse
-
-## Documentacao Complementar
-
-- [Arquitetura completa](docs/architecture.md)
-- [Modelo de dados](docs/data-model.md)
-- [Runbook inicial](docs/runbooks/pipeline-recovery.md)
-
-## Observacao
-
-Este projeto esta sendo construído com foco em clareza arquitetural e qualidade de demonstracao tecnica. O objetivo nao e apenas "funcionar", mas mostrar criterio de engenharia nas decisoes de plataforma, dados, seguranca e AI.
+## Próximos passos
+1. estabilizar publicação da imagem da Lambda no ECR
+2. concluir ativação da Lambda
+3. alinhar extratores do MVP à documentação
+4. conectar dbt à camada silver real
+5. evoluir a API para serving analítico real
+6. conectar Redshift ao consumo da API

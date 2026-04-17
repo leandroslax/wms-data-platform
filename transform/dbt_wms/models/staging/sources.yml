@@ -1,14 +1,14 @@
 version: 2
 
 sources:
-  - name: bronze
-    description: "Raw WMS data landed in the bronze layer."
+  - name: silver
+    description: "Normalized WMS data prepared for analytical transformation."
     database: awsdatacatalog
-    schema: wms_bronze_dev
+    schema: wms_silver_dev
     tables:
       - name: orders
-        description: "Raw order events from Oracle WMS."
+        description: "Silver orders dataset."
       - name: inventory
-        description: "Raw inventory positions from Oracle WMS."
+        description: "Silver inventory dataset."
       - name: movements
-        description: "Raw stock movement events from Oracle WMS."
+        description: "Silver movements dataset."

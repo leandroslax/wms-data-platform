@@ -7,5 +7,9 @@ select
     cast(quantity as int) as quantity,
     cast(total_amount as double) as total_amount,
     cast(created_at as timestamp) as created_at,
-    cast(updated_at as timestamp) as updated_at
-from {{ source('bronze', 'orders') }}
+    cast(updated_at as timestamp) as updated_at,
+    cast(ingestion_run_id as string) as ingestion_run_id,
+    cast(extraction_timestamp as timestamp) as extraction_timestamp,
+    cast(source_system as string) as source_system,
+    cast(source_table as string) as source_table
+from {{ source('silver', 'orders') }}

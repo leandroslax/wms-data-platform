@@ -17,6 +17,14 @@ models:
           - not_null
           - unique
 
+  - name: fct_movements
+    description: "Fact table for stock movement activity."
+    columns:
+      - name: movement_id
+        tests:
+          - not_null
+          - unique
+
   - name: dim_products
     description: "Minimal product dimension derived from transactional activity."
     columns:
