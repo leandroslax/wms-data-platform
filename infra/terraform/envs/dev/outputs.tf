@@ -1,15 +1,14 @@
 output "environment" {
-  value = "dev"
+  description = "Environment name"
+  value       = local.environment
 }
 
 output "bucket_names" {
-  value = module.s3.bucket_names
-}
-
-output "lambda_function_names" {
-  value = module.lambda.lambda_function_names
+  description = "S3 buckets created for the platform"
+  value       = module.s3.bucket_names
 }
 
 output "alerts_topic_arn" {
-  value = module.monitoring.alerts_topic_arn
+  description = "SNS topic ARN for platform alerts"
+  value       = module.monitoring.alerts_topic_arn
 }

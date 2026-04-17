@@ -31,11 +31,13 @@ module "secrets" {
 }
 
 module "s3" {
-  source       = "../../modules/s3"
-  environment  = local.environment
-  project_name = var.project_name
-  kms_key_arn  = module.secrets.kms_key_arn
-  tags         = module.iam.default_tags
+  source         = "../../modules/s3"
+  environment    = local.environment
+  project_name   = var.project_name
+  aws_region     = var.aws_region
+  aws_account_id = var.aws_account_id
+  kms_key_arn    = module.secrets.kms_key_arn
+  tags           = module.iam.default_tags
 }
 
 module "lambda" {

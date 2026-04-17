@@ -400,13 +400,13 @@ wms-data-platform/
 ### Storage
 | Bucket | Uso | Config |
 |---|---|---|
-| `wms-bronze-{env}` | raw + CDC events | Iceberg · KMS · versioning |
-| `wms-silver-{env}` | normalizado + enriquecido | Iceberg · KMS · versioning |
-| `wms-gold-{env}` | marts agregados | Iceberg · KMS · versioning |
-| `wms-artifacts-{env}` | checkpoints · cache API · dbt artifacts | KMS |
-| `wms-query-results-{env}` | resultados de queries e artefatos transitórios | lifecycle 7 dias |
-| `wms-frontend-{env}` | React build | público via CloudFront OAC |
-| `wms-tf-state` | Terraform remote state | versioning · MFA delete |
+| `wms-dp-{env}-bronze-{region}-{account}` | raw + CDC events | Iceberg · KMS · versioning |
+| `wms-dp-{env}-silver-{region}-{account}` | normalizado + enriquecido | Iceberg · KMS · versioning |
+| `wms-dp-{env}-gold-{region}-{account}` | marts agregados | Iceberg · KMS · versioning |
+| `wms-dp-{env}-artifacts-{region}-{account}` | checkpoints · cache API · dbt artifacts | KMS |
+| `wms-dp-{env}-query-results-{region}-{account}` | resultados de queries e artefatos transitórios | lifecycle 7 dias |
+| `wms-dp-{env}-frontend-{region}-{account}` | React build | privado via CloudFront OAC |
+| `wms-data-platform-tf-state-896159010925` | Terraform remote state | versioning · MFA delete |
 
 ### Streaming & Mensageria
 | Recurso | Uso | Custo |

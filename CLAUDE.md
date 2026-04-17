@@ -101,13 +101,13 @@ Eight analytical models in `transform/dbt_wms/models/marts/`:
 
 | Bucket | Purpose |
 |---|---|
-| `wms-bronze-{env}` | Raw Oracle data + CDC events (no transformation) |
-| `wms-silver-{env}` | Normalized, deduped, typed, geocoded, enriched |
-| `wms-gold-{env}` | Aggregated marts ready for consumption |
-| `wms-artifacts-{env}` | Checkpoints, API response cache, dbt artifacts |
-| `wms-query-results-{env}` | query results and transient artifacts (7-day lifecycle) |
-| `wms-frontend-{env}` | React build (served via CloudFront OAC) |
-| `wms-tf-state` | Terraform remote state (versioning + MFA delete) |
+| `wms-dp-{env}-bronze-{region}-{account}` | Raw Oracle data + CDC events (no transformation) |
+| `wms-dp-{env}-silver-{region}-{account}` | Normalized, deduped, typed, geocoded, enriched |
+| `wms-dp-{env}-gold-{region}-{account}` | Aggregated marts ready for consumption |
+| `wms-dp-{env}-artifacts-{region}-{account}` | Checkpoints, API response cache, dbt artifacts |
+| `wms-dp-{env}-query-results-{region}-{account}` | query results and transient artifacts (7-day lifecycle) |
+| `wms-dp-{env}-frontend-{region}-{account}` | React build (served via CloudFront OAC) |
+| `wms-data-platform-tf-state-896159010925` | Terraform remote state (versioning + MFA delete) |
 
 ### CI/CD (GitHub Actions — 7 workflows)
 

@@ -20,7 +20,7 @@ A ideia central e responder perguntas como:
 Stack principal do projeto:
 
 - `Oracle WMS` como sistema de origem
-- `S3 + Apache Iceberg` como lakehouse em camadas `bronze`, `silver` e `gold`
+- `S3 + Apache Iceberg` como lakehouse em camadas `bronze`, `silver` e `gold`, com naming corporativo por ambiente, regiao e conta
 - `AWS Glue Catalog` como catalogo das tabelas Iceberg
 - `dbt + AWS Glue (Spark)` para transformacoes
 - `Redshift Serverless` para serving analitico e consultas de produto
@@ -138,7 +138,7 @@ Sugestao:
 
 O backend do Terraform nao se cria sozinho. Antes do primeiro `terraform init`, voce precisa criar:
 
-- bucket `wms-tf-state`
+- bucket `wms-data-platform-tf-state-896159010925`
 - tabela DynamoDB `wms-tf-locks`
 
 ### 3. Inicializar o ambiente `dev`

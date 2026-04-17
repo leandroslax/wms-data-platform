@@ -22,7 +22,7 @@
 
 ## Non-Negotiables
 
-- Multi-env Terraform
+- Multi-env Terraform with enterprise-style resource naming
 - Least-privilege IAM
 - KMS for sensitive storage and secrets
 - Documented ADRs for major trade-offs

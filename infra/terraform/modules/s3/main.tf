@@ -1,36 +1,41 @@
 locals {
+  bucket_prefix = "wms-dp-${var.environment}"
+
   buckets = {
     bronze = {
-      name = "wms-bronze-${var.environment}"
+      name = "${local.bucket_prefix}-bronze-${var.aws_region}-${var.aws_account_id}"
     }
     silver = {
-      name = "wms-silver-${var.environment}"
+      name = "${local.bucket_prefix}-silver-${var.aws_region}-${var.aws_account_id}"
     }
     gold = {
-      name = "wms-gold-${var.environment}"
+      name = "${local.bucket_prefix}-gold-${var.aws_region}-${var.aws_account_id}"
     }
     artifacts = {
-      name = "wms-artifacts-${var.environment}"
+      name = "${local.bucket_prefix}-artifacts-${var.aws_region}-${var.aws_account_id}"
     }
     query_results = {
-      name = "wms-query-results-${var.environment}"
+      name = "${local.bucket_prefix}-query-results-${var.aws_region}-${var.aws_account_id}"
     }
     frontend = {
-      name = "wms-frontend-${var.environment}"
+      name = "${local.bucket_prefix}-frontend-${var.aws_region}-${var.aws_account_id}"
     }
   }
 }
 
 resource "aws_s3_bucket" "this" {
   for_each = local.buckets
-  bucket   = each.value.name
-  tags     = var.tags
+
+  bucket        = each.value.name
+  force_destroy = false
+  tags          = var.tags
 }
 
 resource "aws_s3_bucket_versioning" "this" {
   for_each = aws_s3_bucket.this
 
   bucket = each.value.id
+
   versioning_configuration {
     status = "Enabled"
   }
@@ -40,6 +45,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
   for_each = aws_s3_bucket.this
 
   bucket = each.value.id
+
   rule {
     apply_server_side_encryption_by_default {
       kms_master_key_id = var.kms_key_arn

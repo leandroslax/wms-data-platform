@@ -1,11 +1,9 @@
 # Python
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
 *.pyd
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+.python-version
 .venv/
 venv/
 
@@ -14,13 +12,8 @@ venv/
 .env.*
 !.env.example
 
-# OS / Editor
-.DS_Store
-.vscode/
-.idea/
-
 # Terraform
-.terraform/
+**/.terraform/*
 *.tfstate
 *.tfstate.*
 crash.log
@@ -28,19 +21,21 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-.terraform.lock.hcl
 
-# Node
+# Node / frontend
 node_modules/
 dist/
+build/
 
-# dbt
-logs/
-target/
-dbt_packages/
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
 
-# Local data and artifacts
-*.log
-coverage.xml
+# Test / coverage
+.pytest_cache/
+.coverage
 htmlcov/
-artifacts/
+
+# Misc
+*.log
