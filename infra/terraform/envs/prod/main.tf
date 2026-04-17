@@ -47,10 +47,21 @@ module "ecr" {
   tags         = module.iam.default_tags
 }
 
+module "lambda" {
+  source          = "../../modules/lambda"
+  environment     = local.environment
+  project_name    = var.project_name
+  lambda_role_arn = module.iam.lambda_execution_role_arn
+  kms_key_arn     = module.secrets.kms_key_arn
+  image_uri       = "896159010925.dkr.ecr.us-east-1.amazonaws.com/wms-data-platform-prod-lambda:latest"
+  secret_arns     = module.secrets.secret_arns
+  tags            = module.iam.default_tags
+}
+
 module "monitoring" {
   source                = "../../modules/monitoring"
   environment           = local.environment
   project_name          = var.project_name
-  lambda_function_names = {}
+  lambda_function_names = module.lambda.lambda_function_names
   tags                  = module.iam.default_tags
 }

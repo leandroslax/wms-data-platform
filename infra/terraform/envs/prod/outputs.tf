@@ -22,3 +22,8 @@ output "ecr_repository_url" {
   description = "ECR repository URL for Lambda images"
   value       = module.ecr.repository_url
 }
+
+output "lambda_function_names" {
+  description = "Lambda functions created for the platform"
+  value       = module.lambda.lambda_function_names
+}
