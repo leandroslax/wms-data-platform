@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: black --check app pipelines tests
+      - run: isort --check-only app pipelines tests
+      - run: flake8 app pipelines tests
+      - run: pytest tests/unit
+      - run: terraform fmt -check -recursive infra/terraform
+      - run: docker build -t wms-lambda-ci .

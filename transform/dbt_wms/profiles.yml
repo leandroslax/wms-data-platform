@@ -1,0 +1,20 @@
+dbt_wms:
+  target: dev
+  outputs:
+    dev:
+      type: glue
+      role_arn: arn:aws:iam::123456789012:role/wms-glue-role
+      region: us-east-1
+      workers: 2
+      worker_type: G.1X
+      schema: wms_silver_dev
+      database: awsdatacatalog
+      location: s3://wms-silver-dev/
+    prod:
+      type: redshift
+      host: placeholder
+      user: placeholder
+      password: placeholder
+      port: 5439
+      dbname: dev
+      schema: marts

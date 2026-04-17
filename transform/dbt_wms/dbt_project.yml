@@ -1,0 +1,18 @@
+name: "dbt_wms"
+version: "1.0.0"
+profile: "dbt_wms"
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+docs-paths: ["docs"]
+
+models:
+  dbt_wms:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: table
+    marts:
+      +materialized: table

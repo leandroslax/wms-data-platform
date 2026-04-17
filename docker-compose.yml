@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  oracle-xe:
+    image: gvenzl/oracle-xe:21-slim
+    environment:
+      ORACLE_PASSWORD: oracle
+    ports:
+      - "1521:1521"
+
+  localstack:
+    image: localstack/localstack:3.7
+    environment:
+      SERVICES: s3,secretsmanager,lambda,iam,cloudwatch,events
+      DEBUG: 1
+    ports:
+      - "4566:4566"
+
+  airflow:
+    image: apache/airflow:2.10.1
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    volumes:
+      - ./pipelines/dags:/opt/airflow/dags
+    ports:
+      - "8080:8080"
