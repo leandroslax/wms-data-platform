@@ -245,3 +245,4 @@ Camadas planejadas:
 ## Observacao
 
 Este projeto esta sendo construído com foco em clareza arquitetural e qualidade de demonstracao tecnica. O objetivo nao e apenas "funcionar", mas mostrar criterio de engenharia nas decisoes de plataforma, dados, seguranca e AI.
+# wms-data-platform
