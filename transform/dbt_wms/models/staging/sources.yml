@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Raw WMS data landed in the bronze layer."
+    database: awsdatacatalog
+    schema: wms_bronze_dev
+    tables:
+      - name: orders
+        description: "Raw order events from Oracle WMS."
+      - name: inventory
+        description: "Raw inventory positions from Oracle WMS."
+      - name: movements
+        description: "Raw stock movement events from Oracle WMS."

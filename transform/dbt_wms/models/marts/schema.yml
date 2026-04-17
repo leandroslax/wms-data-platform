@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: fct_orders
+    description: "Fact table for WMS order activity."
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+          - unique
+
+  - name: fct_inventory_snapshot
+    description: "Fact table for inventory position snapshots."
+    columns:
+      - name: inventory_id
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_products
+    description: "Minimal product dimension derived from transactional activity."
+    columns:
+      - name: product_id
+        tests:
+          - not_null
+          - unique

@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: stg_orders
+    description: "Standardized order records from bronze.orders."
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        tests:
+          - not_null
+      - name: product_id
+        tests:
+          - not_null
+
+  - name: stg_inventory
+    description: "Standardized inventory snapshots from bronze.inventory."
+    columns:
+      - name: inventory_id
+        tests:
+          - not_null
+          - unique
+      - name: product_id
+        tests:
+          - not_null
+
+  - name: stg_movements
+    description: "Standardized movement events from bronze.movements."
+    columns:
+      - name: movement_id
+        tests:
+          - not_null
+          - unique
+      - name: product_id
+        tests:
+          - not_null
