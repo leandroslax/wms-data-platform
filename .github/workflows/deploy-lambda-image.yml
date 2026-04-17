@@ -6,8 +6,8 @@ on:
     branches:
       - main
     paths:
-      - Dockerfile
-      - requirements.txt
+      - Dockerfile.api
+      - requirements-api-lambda.txt
       - app/**
       - pipelines/**
       - .github/workflows/deploy-lambda-image.yml
@@ -43,6 +43,7 @@ jobs:
       - name: Build image
         run: |
           docker build \
+            -f Dockerfile.api \
             -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG \
             .
 

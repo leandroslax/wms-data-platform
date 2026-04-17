@@ -1,0 +1,9 @@
+FROM public.ecr.aws/lambda/python:3.11
+
+COPY requirements-ai-lambda.txt .
+RUN pip install --no-cache-dir -r requirements-ai-lambda.txt
+
+COPY app ./app
+COPY pipelines ./pipelines
+
+CMD ["pipelines.lambda_handler.handler"]

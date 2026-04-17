@@ -1,0 +1,5 @@
+langchain==0.3.2
+langchain-community==0.3.1
+qdrant-client==1.11.1
+langfuse==2.51.3
+crewai==0.76.9
