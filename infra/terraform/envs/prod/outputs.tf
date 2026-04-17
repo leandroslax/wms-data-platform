@@ -1,15 +1,24 @@
 output "environment" {
-  value = "prod"
+  description = "Environment name"
+  value       = local.environment
 }
 
 output "bucket_names" {
-  value = module.s3.bucket_names
-}
-
-output "lambda_function_names" {
-  value = module.lambda.lambda_function_names
+  description = "S3 buckets created for the platform"
+  value       = module.s3.bucket_names
 }
 
 output "alerts_topic_arn" {
-  value = module.monitoring.alerts_topic_arn
+  description = "SNS topic ARN for platform alerts"
+  value       = module.monitoring.alerts_topic_arn
+}
+
+output "ecr_repository_name" {
+  description = "ECR repository name for Lambda images"
+  value       = module.ecr.repository_name
+}
+
+output "ecr_repository_url" {
+  description = "ECR repository URL for Lambda images"
+  value       = module.ecr.repository_url
 }

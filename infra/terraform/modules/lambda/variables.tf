@@ -1,23 +1,35 @@
 variable "project_name" {
-  type = string
+  description = "Project name"
+  type        = string
 }
 
 variable "environment" {
-  type = string
+  description = "Environment name"
+  type        = string
 }
 
 variable "lambda_role_arn" {
-  type = string
+  description = "IAM role ARN used by Lambda"
+  type        = string
 }
 
 variable "kms_key_arn" {
-  type = string
+  description = "KMS key ARN used by Lambda"
+  type        = string
+}
+
+variable "image_uri" {
+  description = "Container image URI published in ECR"
+  type        = string
 }
 
 variable "secret_arns" {
-  type = map(string)
+  description = "Secrets Manager ARNs by logical name"
+  type        = map(string)
 }
 
 variable "tags" {
-  type = map(string)
+  description = "Common tags"
+  type        = map(string)
+  default     = {}
 }
