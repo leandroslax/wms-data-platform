@@ -7,6 +7,7 @@ dbt_wms:
       region: us-east-1
       workers: 2
       worker_type: G.1X
+      glue_version: "4.0"
       schema: wms_silver_dev
       location: s3://wms-dp-dev-silver-us-east-1-896159010925/
       conf: spark.sql.legacy.allowNonEmptyLocationInCTAS=true
@@ -17,6 +18,7 @@ dbt_wms:
       region: us-east-1
       workers: 4
       worker_type: G.1X
+      glue_version: "4.0"
       schema: wms_silver_prod
       location: s3://wms-dp-prod-silver-us-east-1-896159010925/
       conf: spark.sql.legacy.allowNonEmptyLocationInCTAS=true

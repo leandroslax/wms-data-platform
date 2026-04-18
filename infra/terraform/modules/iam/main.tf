@@ -87,13 +87,64 @@ data "aws_iam_policy_document" "glue_s3_policy" {
       "glue:UpdateTable",
       "glue:DeleteTable",
       "glue:GetDatabase",
+      "glue:GetDatabases",
       "glue:GetTable",
+      "glue:GetTables",
       "glue:GetPartitions",
       "glue:CreatePartition",
+      "glue:BatchCreatePartition",
       "glue:DeletePartition"
     ]
 
     resources = ["*"]
+  }
+
+  # Glue Interactive Sessions — required by dbt-glue adapter
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "glue:CreateSession",
+      "glue:GetSession",
+      "glue:ListSessions",
+      "glue:RunStatement",
+      "glue:GetStatement",
+      "glue:ListStatements",
+      "glue:CancelStatement",
+      "glue:DeleteSession",
+      "glue:StopSession"
+    ]
+
+    resources = ["*"]
+  }
+
+  # Allow passing this role to Glue sessions (self-passrole pattern)
+  statement {
+    effect  = "Allow"
+    actions = ["iam:PassRole"]
+
+    resources = ["arn:aws:iam::*:role/${var.project_name}-${var.environment}-glue-role"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["glue.amazonaws.com"]
+    }
+  }
+
+  # Logs — required for Glue session output
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "logs:GetLogEvents",
+      "logs:GetLogRecord"
+    ]
+
+    resources = ["arn:aws:logs:*:*:/aws-glue/*"]
   }
 }
 
