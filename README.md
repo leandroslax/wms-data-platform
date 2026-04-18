@@ -1,154 +1,284 @@
 # WMS Data Platform
 
-Plataforma moderna de dados construída sobre Oracle WMS, cobrindo o ciclo completo de engenharia de dados: ingestão incremental, lakehouse medallion no S3, transformações com dbt no Glue, warehouse analítico no Redshift Serverless e camada de agentes de IA.
+Plataforma de dados moderna construída sobre Oracle WMS, cobrindo o ciclo completo de engenharia de dados: ingestão incremental com Parquet, lakehouse medallion no S3 com Apache Iceberg, transformações dbt no Glue, warehouse analítico no Redshift Serverless e camada de agentes de IA conversacional.
 
 ---
 
 ## Arquitetura
 
 ```
-Oracle WMS
-  ├─[CDC]──► DMS → Kinesis → Lambda Consumer ──► S3 Bronze (Parquet)
-  └─[batch]─► Lambda (cx_Oracle) + checkpoint ──► S3 Bronze (Parquet)
-                                                        │
-                                          Glue Crawler → Glue Catalog
-                                                        │
-                                              dbt + Glue (Spark)
-                                                        │
-                                          S3 Silver (Parquet, Glue Catalog)
-                                                        │
-                                    ┌───────────────────┤
-                               Redshift              Grafana Cloud
-                              Serverless              4 dashboards
-                                    │
-                          AnalystAgent (SQL)
-                          ResearchAgent (RAG)
-                          ReporterAgent (síntese)
-                                    │
-                           FastAPI (Lambda + API Gateway)
-                                    │
-                          React + Vite (S3 + CloudFront)
+Oracle WMS (read-only, via VPN FortiGate)
+    │
+    ├─[batch]──► Lambda Extrator (export_oraint_parquet.py)
+    │             checkpoint incremental por PK no S3
+    │                       │
+    │                       ▼
+    │            S3 Raw (Parquet bruto)        ← Landing zone
+    │                       │
+    │            raw_to_bronze_iceberg.py
+    │                       │
+    └─[CDC]──► DMS → Kinesis → Lambda Consumer
+                              │
+                              ▼
+                   S3 Bronze (Iceberg MERGE)   ← Fonte única de verdade
+                   Glue Data Catalog
+                              │
+                   dbt Core + AWS Glue (Spark)
+                              │
+                   S3 Silver (Iceberg)         ← Normalizado, dedupado, tipado
+                              │
+                   dbt marts analíticos
+                              │
+                   S3 Gold (Iceberg)           ← Agregados prontos para consumo
+                              │
+                   Redshift COPY
+                              │
+                   Redshift Serverless         ← Serving layer
+                         │         │
+                    Agentes IA   Grafana Cloud
+               AnalystAgent       4 dashboards
+               ResearchAgent
+               ReporterAgent
+                    │
+               FastAPI (Lambda + API Gateway + WAF)
+                    │
+               React + Vite (S3 + CloudFront)
 ```
-
-### Camadas
-
-| Camada | Localização | Tecnologia |
-|---|---|---|
-| Extração batch | `pipelines/extraction/` | Lambda + cx_Oracle, checkpoint em S3 |
-| CDC | `pipelines/cdc/` | AWS DMS → Kinesis → consumer Lambda |
-| Enriquecimento | `pipelines/enrichment/` | Lambda + SQS, ViaCEP / IBGE / INMET / ANTT |
-| Data Lake Bronze | S3 + Glue Catalog | Parquet particionado por entidade |
-| Transformações | `transform/dbt_wms/` | dbt Core no AWS Glue (Spark) |
-| Data Lake Silver | S3 + Glue Catalog | Parquet, deduplicated, typed |
-| Warehouse | Redshift Serverless | 8 marts analíticos + Redshift Spectrum |
-| Agentes IA | `app/agents/` | LangChain / CrewAI, Claude Haiku via Bedrock, Qdrant RAG |
-| API | `app/api/` | FastAPI no Lambda + API Gateway + WAF |
-| Frontend | `web/` | React + Vite, S3 + CloudFront |
-| Infraestrutura | `infra/terraform/` | 15 módulos Terraform |
-| Orquestração | `pipelines/dags/` | Apache Airflow (Astronomer Cloud, 7 DAGs) |
 
 ---
 
-## Status atual
+## Status por Camada
 
-### ✅ Concluído
+### ✅ Infraestrutura (Terraform)
 
-**Fundação de infraestrutura**
-- Terraform com remote state (S3 + DynamoDB lock)
-- Buckets S3 com naming corporativo e KMS por camada
-- IAM roles com least-privilege (Glue, Lambda, execução)
-- ECR provisionado para imagens Lambda
+- Remote state: S3 + DynamoDB lock
+- Ambientes separados: `dev` e `prod` aplicados
+- Módulos implementados e aplicados: `iam`, `s3`, `ecr`, `lambda`, `monitoring`, `secrets`
+- Módulos implementados mas **não aplicados**: `redshift`, `api_gateway`, `cloudfront`, `waf`, `athena`, `budget`, `cloudtrail`, `vpc`, `eventbridge`
+- Módulos pendentes para CDC: `dms`, `kinesis`, `sqs`
+- IAM: roles com prefixo de ambiente (`dev`/`prod`), policy KMS gerenciada pelo Terraform
+- Buckets S3 ativos: `raw`, `bronze`, `silver`, `gold`, `artifacts`, `query-results`, `frontend` (dev + prod)
 
-**Ingestão Bronze**
-- Extrator incremental Oracle WMS → S3 em Parquet (`export_oraint_parquet.py`)
-- Suporte a modo `incremental` (watermark por PK) e `snapshot_full`
-- Entidades extraídas: `orders_documento`, `inventory_produtoestoque`, `movements_entrada_saida`, `products_snapshot`
-- Glue Crawler configurado sobre o bronze; tabelas registradas no Glue Catalog (`wms_bronze_prod`)
+---
 
-**Pipeline dbt — Silver**
-- Staging views com colunas reais do Oracle WMS e deduplicação por chave de negócio (`ROW_NUMBER`)
-- Mart tables materializados como Parquet no S3 silver via Glue (Spark)
-- **19/19 testes de dados passando** (`not_null` + `unique` em todas as PKs)
+### ✅ Extração (Raw Layer)
+
+- `export_oraint_parquet.py`: extrator incremental Oracle WMS → Parquet → S3 raw
+- Entidades ativas: `orders_documento`, `inventory_produtoestoque`, `movements_entrada_saida`, `products_snapshot`
+- Checkpoint por PK no S3 (`artifacts`), suporte a `incremental` e `snapshot_full`
+- Anonimização de dados sensíveis (`anonymizer.py`)
+- Upload particionado: `entity={name}/date={YYYY-MM-DD}/`
+
+---
+
+### ✅ Bronze (Iceberg)
+
+- `raw_to_bronze_iceberg.py`: lê Parquet do raw, faz UPSERT para Iceberg via PyIceberg + Glue Catalog
+- Tabelas Iceberg registradas no Glue Catalog (`wms_bronze_dev`, `wms_bronze_prod`)
+- MERGE por chave de negócio por entidade
+- CDC via DMS + Kinesis: **módulos Terraform prontos, aguardando liberação de IP na VPN FortiGate**
+
+---
+
+### ✅ Silver (dbt + Glue)
+
+- dbt Core 1.10 + dbt-glue 1.10 rodando no AWS Glue (Spark)
+- **19/19 testes passando** com dados reais do Oracle WMS
+- Targets separados: `dev` (Glue → `wms_silver_dev`) e `prod` (Glue → `wms_silver_prod`)
+- Schema dinâmico via `DBT_BRONZE_SCHEMA` env var
 
 Modelos ativos:
 
-| Modelo | Tipo | Descrição |
+| Modelo | Tipo | Chave | Descrição |
+|---|---|---|---|
+| `stg_inventory` | view | `inventory_id` | Estoque normalizado, dedup por `sequenciaestoque` |
+| `stg_movements` | view | `movement_id` | Movimentações, dedup por `sequenciamovimento` |
+| `stg_orders` | view | `order_id` | Documentos de saída, dedup por `SEQUENCIADOCUMENTO` |
+| `fct_inventory_snapshot` | incremental Iceberg | `inventory_id` | Posição de estoque por produto/armazém |
+| `fct_movements` | incremental Iceberg | `movement_id` | Movimentações com delta de quantidade |
+| `fct_orders` | incremental Iceberg | `order_id` | Documentos de saída com valores |
+| `dim_products` | incremental Iceberg | `product_id` | Dimensão produto deduplicated |
+
+---
+
+### ❌ Gold — Marts Analíticos (próximo passo)
+
+Os 8 marts analíticos estão planejados na arquitetura mas **ainda não implementados** no dbt:
+
+| Mart | Descrição | Depende de |
 |---|---|---|
-| `stg_inventory` | view | Inventário normalizado de `inventory_produtoestoque` |
-| `stg_movements` | view | Movimentações de `movements_entrada_saida` |
-| `stg_orders` | view | Documentos de `orders_documento` |
-| `fct_inventory_snapshot` | table | Posição de estoque por produto/armazém |
-| `fct_movements` | table | Movimentações com delta de quantidade |
-| `fct_orders` | table | Documentos de saída |
-| `dim_products` | table | Dimensão produto deduplicated |
+| `mart_picking_performance` | Produtividade por operador e turno | `fct_movements`, dados de tasks |
+| `mart_inventory_health` | Giro, cobertura e risco de ruptura | `fct_inventory_snapshot` |
+| `mart_order_sla` | Tempo de ciclo e aderência ao prazo | `fct_orders` |
+| `mart_operator_productivity` | Ranking com contexto de complexidade | `fct_movements`, `fct_orders` |
+| `mart_stockout_risk` | Projeção de ruptura por SKU | `fct_inventory_snapshot` |
+| `mart_geo_performance` | SLA por estado/cidade | `fct_orders` + enriquecimento CEP |
+| `mart_geo_inventory` | Cobertura de estoque por região | `fct_inventory_snapshot` + enriquecimento CEP |
+| `mart_weather_impact` | Correlação atraso × clima | `fct_orders` + INMET |
 
-### 🔄 Em andamento / Próximos passos
+---
 
-1. **Terraform** — persistir políticas KMS (Decrypt + GenerateDataKey) no módulo IAM para sobreviver a `terraform apply`
-2. **Redshift COPY** — carregar silver marts no Redshift Serverless para a camada de serving
-3. **DAG Airflow** — agendar `dbt run` diário no Astronomer Cloud
-4. **AnalystAgent** — LangChain + Redshift para Q&A em linguagem natural sobre os marts
-5. **API FastAPI** — endpoints de serving analítico conectados ao Redshift
-6. **Grafana** — dashboards operacionais sobre os marts silver/gold
+### ❌ Redshift Serverless (bloqueado pelos marts)
+
+- Módulo Terraform `modules/redshift` existe mas não foi aplicado
+- Aguarda: (1) marts gold implementados no dbt, (2) `terraform apply` no módulo
+- Após provisionamento: carregar marts via Redshift COPY do S3 gold
+
+---
+
+### ⚠️ Agents IA (código pronto, sem dados)
+
+Código implementado e estruturado, mas **não funcionais** até o Redshift estar provisionado:
+
+| Agent | Arquivo | Status |
+|---|---|---|
+| `AnalystAgent` | `app/agents/analyst_agent.py` | ✅ implementado — aguarda Redshift |
+| `ResearchAgent` | `app/agents/research_agent.py` | ✅ implementado — aguarda Qdrant indexado |
+| `ReporterAgent` | `app/agents/reporter_agent.py` | ✅ implementado — aguarda os dois acima |
+| `WMSCrew` | `app/agents/wms_crew.py` | ✅ implementado — entry point `run_wms_crew()` |
+| `redshift_tool` | `app/agents/tools/redshift_tool.py` | ✅ implementado |
+| `qdrant_tool` | `app/agents/tools/qdrant_tool.py` | ✅ implementado |
+
+Stack: CrewAI + LangChain + Claude Haiku (Bedrock) + Qdrant Cloud + LangFuse + DeepEval
+
+---
+
+### ⚠️ API FastAPI (skeleton)
+
+Estrutura de rotas e schemas criada, mas **sem lógica de negócio** conectada aos agents ou ao Redshift:
+
+- `app/api/routes/`: `health`, `inventory`, `movements`, `orders`, `metadata`
+- `app/api/services/`: `data_access`, `inventory_service`, `movements_service`, `orders_service`
+- Falta: rota `/chat` conectada ao `run_wms_crew()`, serviços conectados ao Redshift
+
+---
+
+### ❌ Orquestração Airflow (stubs)
+
+6 DAGs escritas como placeholders no Astronomer Cloud — lógica interna pendente:
+
+| DAG | Schedule | Status |
+|---|---|---|
+| `dag_extract_wms.py` | diário 01h | stub |
+| `dag_transform_dbt.py` | diário 03h | stub |
+| `dag_quality_check.py` | diário 04h | stub |
+| `dag_load_warehouse.py` | diário 04h30 | stub |
+| `dag_embed_rag.py` | semanal | stub |
+| `dag_freshness_monitor.py` | horário | stub |
+
+---
+
+### ❌ Enriquecimento Geográfico/Climático
+
+Não iniciado. Necessário para `mart_geo_performance`, `mart_geo_inventory` e `mart_weather_impact`:
+- ViaCEP → CEP para cidade, estado, lat/long
+- IBGE → dados demográficos por município
+- INMET → histórico climático por cidade/data
+- ANTT → dados de transportadoras
+
+---
+
+### ❌ Frontend React
+
+Não iniciado. Previsto: `ChatInterface`, `InventoryDashboard`, `OperationsDashboard`, `GeoMapDashboard`.
+
+---
+
+## Roadmap
+
+```
+CONCLUÍDO
+─────────────────────────────────────────────────
+✅ Terraform foundation (dev + prod)
+✅ Raw layer (S3 + extrator Parquet)
+✅ Bronze layer (Iceberg MERGE, Glue Catalog)
+✅ Silver layer (dbt 19/19 testes, 7 modelos)
+✅ Agents code (Crew, tools, Redshift + Qdrant)
+✅ KB e sub-agents Claude Code (.claude/)
+
+PRÓXIMO PASSO
+─────────────────────────────────────────────────
+⬜ Gold layer — implementar 8 marts no dbt
+   (mart_picking_performance, mart_order_sla,
+    mart_inventory_health, mart_operator_productivity,
+    mart_stockout_risk, mart_geo_performance,
+    mart_geo_inventory, mart_weather_impact)
+
+EM SEQUÊNCIA
+─────────────────────────────────────────────────
+⬜ Redshift Serverless — terraform apply + COPY do gold
+⬜ Agents funcionais — conectar ao Redshift provisionado
+⬜ Qdrant — indexar runbooks e ADRs (dag_embed_rag)
+⬜ FastAPI — rota /chat + serviços conectados
+⬜ DAGs Airflow — implementar lógica interna
+⬜ CDC — liberar IP na VPN FortiGate + ativar DMS/Kinesis
+⬜ Enriquecimento — ViaCEP, IBGE, INMET, ANTT
+⬜ Frontend React — ChatInterface + dashboards
+⬜ CI/CD — 7 GitHub Actions workflows
+⬜ Observabilidade — LangFuse, DeepEval, Grafana
+```
 
 ---
 
 ## Stack
 
-- **Linguagem:** Python 3.11+
-- **IaC:** Terraform (15 módulos, remote state, ambientes `dev` / `prod`)
-- **Data Lake:** Apache Parquet + AWS Glue Data Catalog
-- **Transformações:** dbt Core 1.10 + dbt-glue 1.10 (Spark no Glue)
-- **Warehouse:** Redshift Serverless
-- **Agentes:** LangChain / CrewAI, Claude Haiku (Bedrock), Qdrant, LangFuse, DeepEval
-- **API:** FastAPI + Lambda + API Gateway + WAF
-- **Frontend:** React + Vite + S3 + CloudFront
-- **Segurança:** KMS (3 chaves), GuardDuty, CloudTrail, WAF, Secrets Manager, IAM least-privilege
-- **Observabilidade:** CloudWatch (6 log groups, 8 alarmes), Grafana Cloud, LangFuse, DeepEval, AWS Budgets
-- **CI/CD:** GitHub Actions (7 workflows: ci, infra, lambda, frontend, dbt, security, docs)
-
----
-
-## Estrutura do projeto
-
-```
-infra/terraform/          # fundação AWS, segurança, rede, compute, monitoring
-pipelines/
-  extraction/             # extratores Oracle → S3 Bronze
-  cdc/                    # Kinesis consumer
-  enrichment/             # enriquecimento geográfico e climático
-  dags/                   # DAGs Airflow
-transform/dbt_wms/        # projeto dbt (staging → marts)
-app/
-  api/                    # FastAPI
-  agents/                 # AnalystAgent, ResearchAgent, ReporterAgent
-web/                      # React + Vite
-docs/                     # arquitetura, ADRs, runbooks, contratos
-.claude/                  # KB, agents, comandos, memória de trabalho
-```
-
----
-
-## Buckets S3
-
-| Bucket | Finalidade |
+| Camada | Tecnologia |
 |---|---|
-| `wms-dp-{env}-bronze-us-east-1-896159010925` | Dados brutos Oracle + CDC |
-| `wms-dp-{env}-silver-us-east-1-896159010925` | Dados normalizados, deduplicados, tipados |
-| `wms-dp-{env}-gold-us-east-1-896159010925` | Marts agregados prontos para consumo |
-| `wms-dp-{env}-artifacts-us-east-1-896159010925` | Checkpoints, cache, artefatos dbt |
-| `wms-dp-{env}-query-results-us-east-1-896159010925` | Resultados de queries (lifecycle 7 dias) |
-| `wms-dp-{env}-frontend-us-east-1-896159010925` | Build React (CloudFront OAC) |
-| `wms-data-platform-tf-state-896159010925` | Terraform remote state |
+| Linguagem | Python 3.11+ |
+| IaC | Terraform (17 módulos, remote state S3 + DynamoDB) |
+| Extração | Lambda + oracledb, checkpoint incremental |
+| Ingestão | PyIceberg + Glue Catalog (raw → bronze MERGE) |
+| Transformação | dbt Core 1.10 + dbt-glue 1.10 (Spark no Glue) |
+| Formato de tabela | Apache Iceberg (bronze, silver, gold) |
+| Warehouse | Amazon Redshift Serverless |
+| Agentes | CrewAI + LangChain, Claude Haiku via Bedrock |
+| Vetores | Qdrant Cloud (runbooks, ADRs, docs) |
+| API | FastAPI + Lambda + API Gateway + WAF |
+| Frontend | React + Vite + S3 + CloudFront |
+| Orquestração | Apache Airflow (Astronomer Cloud) |
+| Segurança | KMS, GuardDuty, CloudTrail, WAF, Secrets Manager |
+| Observabilidade | CloudWatch, LangFuse, DeepEval, Grafana Cloud |
+| CI/CD | GitHub Actions (7 workflows) |
 
 ---
 
-## Documentação
+## Estrutura do Repositório
 
-- `docs/architecture.md`
-- `docs/source-system-contract.md`
-- `docs/bronze-contract.md`
-- `docs/silver-contract.md`
-- `docs/serving-strategy.md`
-- `docs/api-serving-integration.md`
-- `docs/redshift-query-contract.md`
+```
+infra/terraform/
+  modules/          # 17 módulos AWS (iam, s3, lambda, redshift, vpc, ...)
+  envs/dev/         # aplicado ✅
+  envs/prod/        # aplicado ✅
+
+pipelines/
+  extraction/       # extratores Oracle → S3 raw ✅
+  ingestion/        # raw → bronze Iceberg ✅
+  dags/             # 6 DAGs Airflow (stubs) ⚠️
+  cdc/              # Kinesis consumer (pendente CDC) ❌
+  enrichment/       # ViaCEP, IBGE, INMET, ANTT ❌
+
+transform/dbt_wms/
+  models/staging/   # 3 staging views ✅
+  models/marts/     # 4 fct/dim básicos ✅ | 8 marts analíticos ❌
+
+app/
+  agents/           # AnalystAgent, ResearchAgent, ReporterAgent, WMSCrew ✅ (sem Redshift)
+  api/              # FastAPI skeleton ⚠️
+
+web/                # React + Vite ❌
+
+docs/               # arquitetura, ADRs, runbooks
+.claude/            # KB (18 domínios), sub-agents, comandos
+```
+
+---
+
+## Ambientes
+
+| Recurso | dev | prod |
+|---|---|---|
+| Glue role | `wms-data-platform-dev-glue-role` | `wms-data-platform-prod-glue-role` |
+| S3 buckets | `wms-dp-dev-*` | `wms-dp-prod-*` |
+| dbt target | `wms_silver_dev` | `wms_silver_prod` |
+| ECR | `wms-data-platform-dev-lambda` | `wms-data-platform-prod-lambda` |
+| Lambdas | `wms-data-platform-dev-{api,extractor,embedder}` | `wms-data-platform-prod-*` |
