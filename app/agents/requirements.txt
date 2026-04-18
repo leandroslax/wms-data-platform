@@ -1,18 +1,30 @@
+# Core
 pydantic>=2.9.0
 anthropic>=0.40.0
-psycopg2-binary>=2.9.0
+boto3>=1.35.0
+python-dotenv>=1.0.0
 
+# Database
+psycopg2-binary>=2.9.0  # Redshift (Postgres-compatible)
+
+# Vector store + embeddings
+qdrant-client>=1.12.0
+fastembed>=0.3.0         # BAAI/bge-base-en-v1.5, 768 dims
+
+# RAG (indexação de runbooks/docs no dag_embed_rag)
 llama-index-core>=0.12.0
 llama-index-vector-stores-qdrant>=0.4.0
 llama-index-embeddings-fastembed>=0.3.0
-qdrant-client>=1.12.0
 
+# Agent framework
 langchain>=0.3.0
 langchain-anthropic>=0.3.0
 langchain-community>=0.3.0
+crewai>=0.100.0
+
+# Interface (futura integração Chainlit ou FastAPI streaming)
 chainlit>=2.0.0
 
-crewai>=0.100.0
-deepeval>=2.0.0
+# Observability
 langfuse>=2.50.0
-supabase>=2.0.0
+deepeval>=2.0.0
