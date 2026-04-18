@@ -1,14 +1,17 @@
 version: 2
 
 sources:
-  - name: silver
-    description: "Normalized WMS data prepared for analytical transformation."
-    database: awsdatacatalog
-    schema: wms_silver_dev
+  - name: bronze
+    description: "Dados WMS bronze — tabelas Iceberg com MERGE por chave de negócio."
+    schema: wms_bronze_dev
     tables:
-      - name: orders
-        description: "Silver orders dataset."
-      - name: inventory
-        description: "Silver inventory dataset."
-      - name: movements
-        description: "Silver movements dataset."
+      - name: orders_documento
+        description: "Documentos de saída — Iceberg MERGE por sequenciadocumento."
+      - name: orders_documentodetalhe
+        description: "Itens de documento — Iceberg MERGE por sequenciadocumento + sequenciaitemdetalhe."
+      - name: inventory_produtoestoque
+        description: "Configuração de estoque por produto/estabelecimento — Iceberg MERGE por sequenciaestoque."
+      - name: movements_entrada_saida
+        description: "Movimentações de estoque — Iceberg MERGE por sequenciamovimento."
+      - name: products_snapshot
+        description: "Snapshot de produtos — Iceberg MERGE por codigoproduto + codigoestabelecimento."

@@ -121,6 +121,15 @@ EXPORT_SPECS: List[ExportSpec] = [
             ORDER BY SEQUENCIAMOVIMENTOESTOQUE
         """.strip(),
     ),
+    ExportSpec(
+        name="wms_inventory_config",
+        mode="snapshot_full",
+        sql="""
+            SELECT *
+            FROM WMAS.INVENTARIO
+            ORDER BY CODIGOESTABELECIMENTO, CODIGOINVENTARIO
+        """.strip(),
+    ),
 ]
 
 

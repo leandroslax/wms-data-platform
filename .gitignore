@@ -39,3 +39,22 @@ htmlcov/
 
 # Misc
 *.log
+
+# env
+.env*
+.venv*
+.venv-extract/
+
+# artifacts / logs
+artifacts/
+*.log
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# python
+__pycache__/
+*.pyc
+

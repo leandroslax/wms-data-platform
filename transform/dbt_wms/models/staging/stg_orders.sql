@@ -1,15 +1,32 @@
+with source as (
+    select
+        cast(SEQUENCIADOCUMENTO   as string)    as order_id,
+        cast(NUMERODOCUMENTO      as string)    as document_number,
+        cast(SERIEDOCUMENTO       as string)    as document_series,
+        cast(TIPODOCUMENTO        as string)    as document_type,
+        cast(CODIGOEMPRESA        as string)    as company_id,
+        cast(CODIGODEPOSITANTE    as string)    as depositor_id,
+        cast(DATAEMISSAO          as timestamp) as issued_at,
+        cast(DATAENTREGA          as timestamp) as delivered_at,
+        cast(VALORTOTALDOCUMENTO  as double)    as total_value,
+        cast(SEQUENCIAINTEGRACAO  as string)    as integration_seq,
+        row_number() over (
+            partition by SEQUENCIADOCUMENTO
+            order by SEQUENCIADOCUMENTO
+        ) as _rn
+    from {{ source('bronze', 'orders_documento') }}
+)
+
 select
-    cast(order_id as string) as order_id,
-    cast(customer_id as string) as customer_id,
-    cast(product_id as string) as product_id,
-    cast(order_status as string) as order_status,
-    cast(payment_status as string) as payment_status,
-    cast(quantity as int) as quantity,
-    cast(total_amount as double) as total_amount,
-    cast(created_at as timestamp) as created_at,
-    cast(updated_at as timestamp) as updated_at,
-    cast(ingestion_run_id as string) as ingestion_run_id,
-    cast(extraction_timestamp as timestamp) as extraction_timestamp,
-    cast(source_system as string) as source_system,
-    cast(source_table as string) as source_table
-from {{ source('silver', 'orders') }}
+    order_id,
+    document_number,
+    document_series,
+    document_type,
+    company_id,
+    depositor_id,
+    issued_at,
+    delivered_at,
+    total_value,
+    integration_seq
+from source
+where _rn = 1

@@ -2,21 +2,21 @@ version: 2
 
 models:
   - name: stg_orders
-    description: "Standardized order records from bronze.orders."
+    description: "Standardized order records from bronze.orders_documento. Deduplicated on order_id."
     columns:
       - name: order_id
         tests:
           - not_null
           - unique
-      - name: customer_id
+      - name: depositor_id
         tests:
           - not_null
-      - name: product_id
+      - name: company_id
         tests:
           - not_null
 
   - name: stg_inventory
-    description: "Standardized inventory snapshots from bronze.inventory."
+    description: "Standardized inventory snapshots from bronze.inventory_produtoestoque. Deduplicated on inventory_id."
     columns:
       - name: inventory_id
         tests:
@@ -25,9 +25,12 @@ models:
       - name: product_id
         tests:
           - not_null
+      - name: warehouse_id
+        tests:
+          - not_null
 
   - name: stg_movements
-    description: "Standardized movement events from bronze.movements."
+    description: "Standardized movement events from bronze.movements_entrada_saida. Deduplicated on movement_id."
     columns:
       - name: movement_id
         tests:
@@ -36,3 +39,5 @@ models:
       - name: product_id
         tests:
           - not_null
+      - name: movement_date
+        description: "Timestamp of the movement. Nullable in source — some legacy records lack a date."
