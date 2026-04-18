@@ -27,3 +27,6 @@ output "lambda_function_names" {
   description = "Lambda functions created for the platform"
   value       = module.lambda.lambda_function_names
 }
+
+# outputs do ec2_extractor desativados junto com o módulo
+# reativar quando vpc e ec2_extractor forem habilitados no prod

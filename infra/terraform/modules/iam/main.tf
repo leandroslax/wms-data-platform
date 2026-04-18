@@ -49,7 +49,7 @@ data "aws_iam_policy_document" "glue_assume_role" {
 }
 
 resource "aws_iam_role" "glue" {
-  name               = "${var.project_name}-glue-role"
+  name               = "${var.project_name}-${var.environment}-glue-role"
   assume_role_policy = data.aws_iam_policy_document.glue_assume_role.json
   tags               = local.default_tags
 }
@@ -98,7 +98,31 @@ data "aws_iam_policy_document" "glue_s3_policy" {
 }
 
 resource "aws_iam_role_policy" "glue_s3" {
-  name   = "${var.project_name}-glue-s3-policy"
+  name   = "${var.project_name}-${var.environment}-glue-s3-policy"
   role   = aws_iam_role.glue.id
   policy = data.aws_iam_policy_document.glue_s3_policy.json
+}
+
+data "aws_iam_policy_document" "glue_kms_policy" {
+  dynamic "statement" {
+    for_each = length(var.kms_key_arns) > 0 ? [1] : []
+    content {
+      effect = "Allow"
+
+      actions = [
+        "kms:Decrypt",
+        "kms:GenerateDataKey",
+        "kms:DescribeKey"
+      ]
+
+      resources = var.kms_key_arns
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "glue_kms" {
+  count  = length(var.kms_key_arns) > 0 ? 1 : 0
+  name   = "${var.project_name}-${var.environment}-glue-kms-policy"
+  role   = aws_iam_role.glue.id
+  policy = data.aws_iam_policy_document.glue_kms_policy.json
 }
