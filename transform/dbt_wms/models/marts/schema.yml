@@ -44,7 +44,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['pending', 'on_time_express', 'on_time', 'at_risk', 'late']
+              arguments:
+                values: ['pending', 'on_time_express', 'on_time', 'at_risk', 'late']
 
   - name: mart_inventory_health
     description: "Inventory health per SKU/warehouse — coverage days and stockout risk."
@@ -57,7 +58,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['critical', 'high', 'medium', 'healthy', 'unknown']
+              arguments:
+                values: ['critical', 'high', 'medium', 'healthy', 'unknown']
 
   - name: mart_stockout_risk
     description: "Stockout risk projection per SKU/warehouse — days to stockout."
@@ -70,7 +72,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['stockout', 'critical', 'high', 'medium', 'low', 'unknown']
+              arguments:
+                values: ['stockout', 'critical', 'high', 'medium', 'low', 'unknown']
 
   - name: mart_operator_productivity
     description: "Daily operator productivity — movement volume, complexity index and ranking."
@@ -95,7 +98,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['morning', 'afternoon', 'night']
+              arguments:
+                values: ['morning', 'afternoon', 'night']
 
   - name: mart_geo_performance
     description: >

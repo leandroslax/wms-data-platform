@@ -74,6 +74,19 @@ module "monitoring" {
   tags                  = local.default_tags
 }
 
+module "redshift" {
+  source         = "../../modules/redshift"
+  environment    = local.environment
+  project_name   = var.project_name
+  aws_region     = var.aws_region
+  aws_account_id = var.aws_account_id
+  kms_key_arn    = module.secrets.kms_key_arn
+  glue_role_arn  = module.iam.glue_role_arn
+  gold_bucket_arn = "arn:aws:s3:::wms-dp-dev-gold-us-east-1-${var.aws_account_id}"
+  admin_password  = var.redshift_admin_password
+  tags            = local.default_tags
+}
+
 # módulos vpc e ec2_extractor desativados no dev
 # ativar quando o cliente liberar o IP 54.81.42.217 na VPN FortiGate
 # e apontar para o ambiente prod
