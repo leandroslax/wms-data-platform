@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: bronze
     description: "Dados WMS bronze — tabelas Iceberg com MERGE por chave de negócio."
-    schema: wms_bronze_dev
+    schema: "{{ env_var('DBT_BRONZE_SCHEMA', 'wms_bronze_dev') }}"
     tables:
       - name: orders_documento
         description: "Documentos de saída — Iceberg MERGE por sequenciadocumento."

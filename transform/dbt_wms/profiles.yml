@@ -3,7 +3,7 @@ dbt_wms:
   outputs:
     dev:
       type: glue
-      role_arn: arn:aws:iam::896159010925:role/wms-data-platform-glue-role
+      role_arn: arn:aws:iam::896159010925:role/wms-data-platform-dev-glue-role
       region: us-east-1
       workers: 2
       worker_type: G.1X
@@ -12,10 +12,21 @@ dbt_wms:
       conf: spark.sql.legacy.allowNonEmptyLocationInCTAS=true
 
     prod:
-      type: redshift
-      host: placeholder
-      user: placeholder
-      password: placeholder
-      port: 5439
-      dbname: dev
-      schema: marts
+      type: glue
+      role_arn: arn:aws:iam::896159010925:role/wms-data-platform-prod-glue-role
+      region: us-east-1
+      workers: 4
+      worker_type: G.1X
+      schema: wms_silver_prod
+      location: s3://wms-dp-prod-silver-us-east-1-896159010925/
+      conf: spark.sql.legacy.allowNonEmptyLocationInCTAS=true
+
+    # prod_redshift: alvo futuro após provisionamento do Redshift Serverless
+    # prod_redshift:
+    #   type: redshift
+    #   host: placeholder
+    #   user: placeholder
+    #   password: placeholder
+    #   port: 5439
+    #   dbname: wms
+    #   schema: marts
