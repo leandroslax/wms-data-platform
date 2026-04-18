@@ -1,27 +1,167 @@
 version: "3.9"
 
+# ─────────────────────────────────────────────────────────────
+# WMS Data Platform — Local Docker Stack
+# Usage: make up          → sobe tudo
+#        make seed        → popula bronze com dados de amostra
+#        make dbt-run     → roda todos os modelos dbt
+#        make dbt-test    → roda testes dbt
+# ─────────────────────────────────────────────────────────────
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.3
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://wmsadmin:${POSTGRES_PASSWORD:-wmsadmin2026}@postgres:5432/airflow
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-zTGhSjBDfmR1sxlPkQpgfO1h8vMWnYxq2eCdu7KtIaA=}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    DBT_BRONZE_SCHEMA: bronze
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: wms
+    POSTGRES_USER: wmsadmin
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wmsadmin2026}
+  volumes:
+    - ./pipelines/dags:/opt/airflow/dags
+    - airflow_logs:/opt/airflow/logs
+    - airflow_plugins:/opt/airflow/plugins
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks:
+    - wms_net
+
 services:
-  oracle-xe:
-    image: gvenzl/oracle-xe:21-slim
-    environment:
-      ORACLE_PASSWORD: oracle
-    ports:
-      - "1521:1521"
 
-  localstack:
-    image: localstack/localstack:3.7
+  # ── PostgreSQL ─────────────────────────────────────────────
+  # bronze / silver / gold schemas  +  airflow metadata DB
+  postgres:
+    image: postgres:16
+    container_name: wms-postgres
+    restart: unless-stopped
     environment:
-      SERVICES: s3,secretsmanager,lambda,iam,cloudwatch,events
-      DEBUG: 1
+      POSTGRES_USER: wmsadmin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wmsadmin2026}
+      POSTGRES_DB: wms
     ports:
-      - "4566:4566"
-
-  airflow:
-    image: apache/airflow:2.10.1
-    environment:
-      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      - "5432:5432"
     volumes:
-      - ./pipelines/dags:/opt/airflow/dags
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wmsadmin -d wms"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - wms_net
+
+  # ── Qdrant (vector store para RAG) ────────────────────────
+  qdrant:
+    image: qdrant/qdrant:v1.9.0
+    container_name: wms-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - wms_net
+
+  # ── MinIO (S3 local) ───────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: wms-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-wmsadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-wmsadmin2026}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - wms_net
+
+  # ── FastAPI (API + Agents) ────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    container_name: wms-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: wms
+      POSTGRES_USER: wmsadmin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wmsadmin2026}
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY: ""
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
+    volumes:
+      - ./app:/workspace/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - wms_net
+
+  # ── Airflow init (executa uma vez) ────────────────────────
+  airflow-init:
+    <<: *airflow-common
+    container_name: wms-airflow-init
+    command: >
+      bash -c "
+        airflow db migrate &&
+        airflow users create
+          --username admin --password admin
+          --firstname WMS --lastname Admin
+          --role Admin --email admin@wms.local
+      "
+    restart: "no"
+
+  # ── Airflow webserver ──────────────────────────────────────
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: wms-airflow-webserver
+    command: webserver
     ports:
       - "8080:8080"
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ── Airflow scheduler ──────────────────────────────────────
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: wms-airflow-scheduler
+    command: scheduler
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  minio_data:
+  airflow_logs:
+  airflow_plugins:
+
+networks:
+  wms_net:
+    driver: bridge

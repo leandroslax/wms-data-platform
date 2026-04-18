@@ -37,7 +37,7 @@ classified as (
             when days_to_stockout <= 14     then 'medium'
             else                                 'low'
         end as risk_level,
-        current_date() as snapshot_date
+        {{ wms_today() }} as snapshot_date
     from base
 )
 

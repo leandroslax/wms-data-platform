@@ -1,6 +1,18 @@
 dbt_wms:
-  target: dev
+  target: local
   outputs:
+
+    # ── Local Docker (PostgreSQL) — target padrão ──────────────
+    local:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      port: 5432
+      user: "{{ env_var('POSTGRES_USER', 'wmsadmin') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'wmsadmin2026') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'wms') }}"
+      schema: gold
+      threads: 4
+
     dev:
       type: glue
       role_arn: arn:aws:iam::896159010925:role/wms-data-platform-dev-glue-role

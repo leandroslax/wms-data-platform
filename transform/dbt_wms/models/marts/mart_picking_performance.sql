@@ -20,8 +20,8 @@ with picking_events as (
         movement_date,
         date_trunc('day', movement_date)     as shift_date,
         case
-            when hour(movement_date) between 6  and 13 then 'morning'
-            when hour(movement_date) between 14 and 21 then 'afternoon'
+            when {{ wms_hour("movement_date") }} between 6  and 13 then 'morning'
+            when {{ wms_hour("movement_date") }} between 14 and 21 then 'afternoon'
             else                                            'night'
         end as shift
     from {{ ref('fct_movements') }}
@@ -49,14 +49,14 @@ with_rates as (
     select
         *,
         round(
-            (unix_timestamp(shift_end) - unix_timestamp(shift_start)) / 3600.0,
+            ({{ wms_epoch("shift_end") }} - {{ wms_epoch("shift_start") }}) / 3600.0,
             2
         ) as active_hours,
         case
             when unix_timestamp(shift_end) > unix_timestamp(shift_start)
             then round(
                 picks_count /
-                ((unix_timestamp(shift_end) - unix_timestamp(shift_start)) / 3600.0),
+                (({{ wms_epoch("shift_end") }} - {{ wms_epoch("shift_start") }}) / 3600.0),
                 2
             )
             else null

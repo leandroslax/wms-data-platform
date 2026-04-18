@@ -19,7 +19,7 @@ with base as (
         total_value,
         case
             when delivered_at is not null and issued_at is not null
-            then (unix_timestamp(delivered_at) - unix_timestamp(issued_at)) / 3600.0
+            then ({{ wms_epoch("delivered_at") }} - {{ wms_epoch("issued_at") }}) / 3600.0
             else null
         end as cycle_time_hours
     from {{ ref('fct_orders') }}

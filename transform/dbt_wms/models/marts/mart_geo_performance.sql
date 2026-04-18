@@ -24,13 +24,13 @@ with sla_base as (
         avg(
             case
                 when delivered_at is not null and issued_at is not null
-                then (unix_timestamp(delivered_at) - unix_timestamp(issued_at)) / 3600.0
+                then ({{ wms_epoch("delivered_at") }} - {{ wms_epoch("issued_at") }}) / 3600.0
             end
         )                               as avg_cycle_time_hours,
         round(
             count(case
                 when delivered_at is not null
-                 and (unix_timestamp(delivered_at) - unix_timestamp(issued_at)) / 3600.0 <= 48
+                 and ({{ wms_epoch("delivered_at") }} - {{ wms_epoch("issued_at") }}) / 3600.0 <= 48
                 then 1
             end) * 100.0 / nullif(count(*), 0),
             2
@@ -38,7 +38,7 @@ with sla_base as (
         round(
             count(case
                 when delivered_at is not null
-                 and (unix_timestamp(delivered_at) - unix_timestamp(issued_at)) / 3600.0 > 48
+                 and ({{ wms_epoch("delivered_at") }} - {{ wms_epoch("issued_at") }}) / 3600.0 > 48
                 then 1
             end) * 100.0 / nullif(count(*), 0),
             2
