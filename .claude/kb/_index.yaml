@@ -1,7 +1,6 @@
 # Knowledge Base Index
 # Machine-readable registry for KB domains
-# Project: WMS Data Platform
-# Note: inherited KB domains from the Semana AI base are retained as reusable references; the active domain context is WMS
+# Project: ShopAgent (Semana AI Data Engineer)
 
 version: "2.0"
 last_updated: "2026-04-12"
