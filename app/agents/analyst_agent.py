@@ -1,20 +1,19 @@
-"""AnalystAgent — SQL-first agent for WMS Redshift Serverless marts.
+"""AnalystAgent — SQL-first agent for WMS PostgreSQL gold marts.
 
 Responds to quantitative questions about warehouse operations by generating
-and executing SQL against the 8 analytical marts.
+and executing SQL against the 8 analytical marts in the 'gold' schema.
 """
 import os
 
-from crewai import Agent
-from langchain_anthropic import ChatAnthropic
+from crewai import Agent, LLM
 
-from app.agents.tools.redshift_tool import redshift_execute_sql
+from app.agents.tools.postgres_tool import postgres_execute_sql
 
 
 def build_analyst_agent() -> Agent:
     """Build and return the WMS AnalystAgent."""
-    llm = ChatAnthropic(
-        model=os.getenv("LLM_MODEL", "claude-haiku-4-5-20251001"),
+    llm = LLM(
+        model=f"anthropic/{os.getenv('LLM_MODEL', 'claude-haiku-4-5-20251001')}",
         temperature=0,
         api_key=os.getenv("ANTHROPIC_API_KEY"),
     )
@@ -28,13 +27,13 @@ def build_analyst_agent() -> Agent:
         ),
         backstory=(
             "Você é um analista sênior especializado em operações de armazém (WMS). "
-            "Tem acesso direto ao Redshift Serverless com 8 marts analíticos cobrindo "
-            "produtividade de operadores, saúde do estoque, SLA de pedidos, "
+            "Tem acesso direto ao PostgreSQL com 8 marts analíticos no schema 'gold', "
+            "cobrindo produtividade de operadores, saúde do estoque, SLA de pedidos, "
             "performance geográfica e impacto climático. "
             "Seu padrão: entenda a pergunta → identifique o mart correto → "
             "escreva SQL preciso → interprete o resultado em português."
         ),
-        tools=[redshift_execute_sql],
+        tools=[postgres_execute_sql],
         llm=llm,
         max_iter=5,
         verbose=True,

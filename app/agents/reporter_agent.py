@@ -5,14 +5,13 @@ from ResearchAgent and produces a structured, actionable final response.
 """
 import os
 
-from crewai import Agent
-from langchain_anthropic import ChatAnthropic
+from crewai import Agent, LLM
 
 
 def build_reporter_agent() -> Agent:
     """Build and return the WMS ReporterAgent."""
-    llm = ChatAnthropic(
-        model=os.getenv("LLM_MODEL", "claude-haiku-4-5-20251001"),
+    llm = LLM(
+        model=f"anthropic/{os.getenv('LLM_MODEL', 'claude-haiku-4-5-20251001')}",
         temperature=0,
         api_key=os.getenv("ANTHROPIC_API_KEY"),
     )
@@ -27,7 +26,7 @@ def build_reporter_agent() -> Agent:
         ),
         backstory=(
             "Você é o comunicador técnico da plataforma WMS. "
-            "Recebe do analista os números exatos do Redshift e do pesquisador "
+            "Recebe do analista os números exatos do PostgreSQL e do pesquisador "
             "o contexto operacional da base de conhecimento — e transforma tudo isso "
             "em uma resposta que o time pode entender e agir imediatamente. "
             "Seu formato padrão:\n"

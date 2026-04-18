@@ -28,13 +28,13 @@ enriched as (
         *,
         case
             when avg_consumption > 0
-            then round(min_stock_qty / avg_consumption, 1)
+            then {{ wms_round("min_stock_qty / avg_consumption", 1) }}
             else null
         end as coverage_days,
 
         case
             when ideal_stock_qty > 0
-            then round(min_stock_qty / ideal_stock_qty, 2)
+            then {{ wms_round("min_stock_qty / ideal_stock_qty", 2) }}
             else null
         end as stock_utilization_rate,
 

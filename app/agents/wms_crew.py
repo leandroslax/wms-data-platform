@@ -25,13 +25,13 @@ def build_wms_crew(question: str) -> Crew:
     analysis_task = Task(
         description=(
             f"Analise a seguinte pergunta sobre operações do WMS e responda "
-            f"com dados precisos do Redshift Serverless:\n\n"
+            f"com dados precisos do PostgreSQL (schema gold):\n\n"
             f"PERGUNTA: {question}\n\n"
-            "Identifique o(s) mart(s) correto(s), escreva a query SQL adequada, "
+            "Identifique o(s) mart(s) correto(s) no schema 'gold', escreva a query SQL adequada, "
             "execute-a e interprete os resultados. Inclua a query utilizada na resposta."
         ),
         expected_output=(
-            "Dados quantitativos do Redshift com: query SQL executada, "
+            "Dados quantitativos do PostgreSQL com: query SQL executada, "
             "resultados tabulados e interpretação inicial em português."
         ),
         agent=analyst,

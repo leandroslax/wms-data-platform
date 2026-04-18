@@ -1,0 +1,19 @@
+apiVersion: 1
+
+datasources:
+  - name: WMS PostgreSQL
+    type: postgres
+    url: postgres:5432
+    user: wmsadmin
+    secureJsonData:
+      password: "${POSTGRES_PASSWORD:-wmsadmin2026}"
+    jsonData:
+      database: wms
+      sslmode: disable
+      maxOpenConns: 10
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+      postgresVersion: 1600
+      timescaledb: false
+    isDefault: true
+    editable: true

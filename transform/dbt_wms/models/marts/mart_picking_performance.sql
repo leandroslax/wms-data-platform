@@ -48,17 +48,16 @@ aggregated as (
 with_rates as (
     select
         *,
-        round(
-            ({{ wms_epoch("shift_end") }} - {{ wms_epoch("shift_start") }}) / 3600.0,
+        {{ wms_round(
+            "(" ~ wms_epoch("shift_end") ~ " - " ~ wms_epoch("shift_start") ~ ") / 3600.0",
             2
-        ) as active_hours,
+        ) }} as active_hours,
         case
-            when unix_timestamp(shift_end) > unix_timestamp(shift_start)
-            then round(
-                picks_count /
-                (({{ wms_epoch("shift_end") }} - {{ wms_epoch("shift_start") }}) / 3600.0),
+            when {{ wms_epoch("shift_end") }} > {{ wms_epoch("shift_start") }}
+            then {{ wms_round(
+                "picks_count / ((" ~ wms_epoch("shift_end") ~ " - " ~ wms_epoch("shift_start") ~ ") / 3600.0)",
                 2
-            )
+            ) }}
             else null
         end as picks_per_hour
     from aggregated

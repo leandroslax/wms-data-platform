@@ -1,0 +1,69 @@
+{
+  "title": "WMS Operations Overview",
+  "uid": "wms-overview",
+  "schemaVersion": 37,
+  "version": 1,
+  "refresh": "1m",
+  "tags": ["wms"],
+  "panels": [
+    {
+      "id": 1, "gridPos": {"x":0,"y":0,"w":6,"h":4},
+      "type": "stat", "title": "Produtos em Risco Crítico",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM gold.mart_stockout_risk WHERE risk_level = 'critical'", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"green","value":0},{"color":"yellow","value":5},{"color":"red","value":10}]}}}
+    },
+    {
+      "id": 2, "gridPos": {"x":6,"y":0,"w":6,"h":4},
+      "type": "stat", "title": "Total de Pedidos",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM gold.fct_orders", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"blue","value":0}]}}}
+    },
+    {
+      "id": 3, "gridPos": {"x":12,"y":0,"w":6,"h":4},
+      "type": "stat", "title": "SLA no Prazo (%)",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT ROUND(COUNT(CASE WHEN sla_status IN ('on_time','on_time_express') THEN 1 END)*100.0/NULLIF(COUNT(*),0)::numeric,1) FROM gold.mart_order_sla WHERE sla_status != 'pending'", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"unit": "percent", "thresholds": {"steps": [{"color":"red","value":0},{"color":"yellow","value":80},{"color":"green","value":95}]}}}
+    },
+    {
+      "id": 4, "gridPos": {"x":18,"y":0,"w":6,"h":4},
+      "type": "stat", "title": "Movimentações Totais",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM gold.fct_movements", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"blue","value":0}]}}}
+    },
+    {
+      "id": 5, "gridPos": {"x":0,"y":4,"w":12,"h":9},
+      "type": "table", "title": "Top Produtos — Risco de Ruptura",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT product_id AS \"SKU\", warehouse_id AS \"Armazém\", company_id AS \"Empresa\", product_class AS \"Classe\", current_stock AS \"Estoque Atual\", avg_daily_consumption AS \"Consumo/Dia\", days_to_stockout AS \"Dias até Ruptura\", risk_level AS \"Risco\" FROM gold.mart_stockout_risk ORDER BY CASE risk_level WHEN 'stockout' THEN 0 WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END, days_to_stockout ASC LIMIT 20", "format": "table", "refId": "A"}],
+      "options": {"sortBy": [{"displayName": "Dias até Ruptura", "desc": false}]},
+      "fieldConfig": {"overrides": [{"matcher":{"id":"byName","options":"Risco"},"properties":[{"id":"custom.displayMode","value":"color-background"}]}]}
+    },
+    {
+      "id": 6, "gridPos": {"x":12,"y":4,"w":12,"h":9},
+      "type": "barchart", "title": "Distribuição de Risco por Armazém",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT warehouse_id AS \"Armazém\", risk_level AS \"Risco\", COUNT(*) AS total FROM gold.mart_stockout_risk GROUP BY 1,2 ORDER BY 1,2", "format": "table", "refId": "A"}],
+      "options": {"xField": "Armazém", "stacking": "normal"}
+    },
+    {
+      "id": 7, "gridPos": {"x":0,"y":13,"w":12,"h":8},
+      "type": "table", "title": "SLA de Pedidos",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT sla_status AS \"Status SLA\", COUNT(*) AS \"Qtd Pedidos\", ROUND(AVG(cycle_time_hours)::numeric,1) AS \"Tempo Médio (h)\", ROUND(COUNT(*)*100.0/SUM(COUNT(*)) OVER()::numeric,1) AS \"% do Total\" FROM gold.mart_order_sla WHERE sla_status != 'pending' GROUP BY 1 ORDER BY 2 DESC", "format": "table", "refId": "A"}]
+    },
+    {
+      "id": 8, "gridPos": {"x":12,"y":13,"w":12,"h":8},
+      "type": "table", "title": "Top Operadores — Produtividade",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT operator_user AS \"Operador\", SUM(total_movements) AS \"Total Movimentos\", SUM(total_qty_moved) AS \"Qtd Total\", COUNT(DISTINCT period_date) AS \"Dias Ativos\" FROM gold.mart_operator_productivity GROUP BY 1 ORDER BY 2 DESC LIMIT 10", "format": "table", "refId": "A"}]
+    }
+  ]
+}

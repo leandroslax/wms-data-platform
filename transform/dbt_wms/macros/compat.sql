@@ -36,3 +36,12 @@
     CURRENT_DATE
   {%- endif -%}
 {% endmacro %}
+
+{# ── wms_round: round(val, precision) — Spark accepts float, PG needs numeric ── #}
+{% macro wms_round(col, precision) %}
+  {%- if target.type in ('glue', 'spark') -%}
+    round({{ col }}, {{ precision }})
+  {%- else -%}
+    round(({{ col }})::numeric, {{ precision }})
+  {%- endif -%}
+{% endmacro %}

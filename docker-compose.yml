@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ─────────────────────────────────────────────────────────────
 # WMS Data Platform — Local Docker Stack
 # Usage: make up          → sobe tudo
@@ -52,6 +50,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+      - ./docker/postgres/02_create_airflow_db.sh:/docker-entrypoint-initdb.d/02_create_airflow_db.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U wmsadmin -d wms"]
       interval: 10s
@@ -123,14 +122,18 @@ services:
   airflow-init:
     <<: *airflow-common
     container_name: wms-airflow-init
-    command: >
-      bash -c "
-        airflow db migrate &&
-        airflow users create
-          --username admin --password admin
-          --firstname WMS --lastname Admin
-          --role Admin --email admin@wms.local
-      "
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname WMS \
+          --lastname Admin \
+          --role Admin \
+          --email admin@wms.local || true
     restart: "no"
 
   # ── Airflow webserver ──────────────────────────────────────
@@ -155,12 +158,37 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  # ── Grafana (dashboards) ──────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: wms-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:-wmsadmin2026}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wmsadmin2026}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - wms_net
+
 volumes:
   postgres_data:
   qdrant_data:
   minio_data:
   airflow_logs:
   airflow_plugins:
+  grafana_data:
 
 networks:
   wms_net:

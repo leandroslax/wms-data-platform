@@ -56,11 +56,18 @@ CREATE TABLE IF NOT EXISTS bronze.movements_entrada_saida (
     quantidadeanterior      INTEGER,
     quantidadeatual         INTEGER,
     datamovimento           TIMESTAMPTZ,
+    dataemissao             TIMESTAMPTZ,
+    data_ref                TIMESTAMPTZ,
     estadomovimento         TEXT,
     usuario                 TEXT,
     observacao              TEXT,
     _cdc_loaded_at          TIMESTAMPTZ DEFAULT now()
 );
+
+-- Migração segura: adiciona colunas novas se o container já existia
+ALTER TABLE bronze.movements_entrada_saida
+    ADD COLUMN IF NOT EXISTS dataemissao  TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS data_ref     TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS bronze.products_snapshot (
     codigoproduto           TEXT,
@@ -71,13 +78,4 @@ CREATE TABLE IF NOT EXISTS bronze.products_snapshot (
     _cdc_loaded_at          TIMESTAMPTZ DEFAULT now()
 );
 
--- ── Database para o Airflow ───────────────────────────────────
--- Precisa ser criado fora de uma transação; usando DO com exception
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'airflow') THEN
-        PERFORM dblink_exec('dbname=wms', 'CREATE DATABASE airflow OWNER wmsadmin');
-    END IF;
-EXCEPTION WHEN OTHERS THEN
-    NULL; -- dblink pode não estar disponível; cria via script externo
-END $$;
+-- Banco 'airflow' criado pelo script 02_create_airflow_db.sh

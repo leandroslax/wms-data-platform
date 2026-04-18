@@ -31,18 +31,16 @@ with order_delays as (
              and ({{ wms_epoch("delivered_at") }} - {{ wms_epoch("issued_at") }}) / 3600.0 > 48
             then 1
         end)                            as delayed_order_count,
-        round(
-            count(case
-                when delivered_at is not null
-                 and ({{ wms_epoch("delivered_at") }} - {{ wms_epoch("issued_at") }}) / 3600.0 > 48
-                then 1
-            end) * 100.0 / nullif(count(*), 0),
+        {{ wms_round(
+            "count(case when delivered_at is not null and (" ~
+            wms_epoch("delivered_at") ~ " - " ~ wms_epoch("issued_at") ~
+            ") / 3600.0 > 48 then 1 end) * 100.0 / nullif(count(*), 0)",
             2
-        )                               as delay_rate_pct,
+        ) }}                            as delay_rate_pct,
         -- placeholder: will be populated by INMET enrichment JOIN
-        cast(null as string)            as weather_condition,
-        cast(null as double)            as avg_temperature_c,
-        cast(null as double)            as precipitation_mm
+        cast(null as {{ dbt.type_string() }})   as weather_condition,
+        cast(null as {{ dbt.type_float() }})    as avg_temperature_c,
+        cast(null as {{ dbt.type_float() }})    as precipitation_mm
     from {{ ref('fct_orders') }}
     where issued_at is not null
     group by 1, 2, 3, 4

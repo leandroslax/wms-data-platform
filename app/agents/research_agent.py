@@ -5,16 +5,15 @@ ADRs, incidents and documentation relevant to the current question.
 """
 import os
 
-from crewai import Agent
-from langchain_anthropic import ChatAnthropic
+from crewai import Agent, LLM
 
 from app.agents.tools.qdrant_tool import qdrant_semantic_search
 
 
 def build_research_agent() -> Agent:
     """Build and return the WMS ResearchAgent."""
-    llm = ChatAnthropic(
-        model=os.getenv("LLM_MODEL", "claude-haiku-4-5-20251001"),
+    llm = LLM(
+        model=f"anthropic/{os.getenv('LLM_MODEL', 'claude-haiku-4-5-20251001')}",
         temperature=0,
         api_key=os.getenv("ANTHROPIC_API_KEY"),
     )
