@@ -9,6 +9,7 @@
 
 select
     order_id,
+    doc_seq,
     document_number,
     document_series,
     document_type,
@@ -16,6 +17,5 @@ select
     depositor_id,
     issued_at,
     delivered_at,
-    total_value,
-    integration_seq
+    total_value
 from {{ ref('stg_orders') }}

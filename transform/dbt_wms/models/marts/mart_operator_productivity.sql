@@ -47,5 +47,5 @@ with_scores as (
 select * from with_scores
 
 {% if is_incremental() %}
-where period_date > (select max(period_date) from {{ this }})
+where period_date > coalesce((select max(period_date) from {{ this }}), '1900-01-01'::date)
 {% endif %}

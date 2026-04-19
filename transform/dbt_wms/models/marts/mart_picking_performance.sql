@@ -66,5 +66,5 @@ with_rates as (
 select * from with_rates
 
 {% if is_incremental() %}
-where shift_date > (select max(shift_date) from {{ this }})
+where shift_date > coalesce((select max(shift_date) from {{ this }}), '1900-01-01'::date)
 {% endif %}

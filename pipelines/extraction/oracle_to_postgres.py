@@ -87,25 +87,24 @@ ENTITIES: List[EntitySpec] = [
         name="movements_entrada_saida",
         pg_table="bronze.movements_entrada_saida",
         mode="watermark",
-        # DATA_REF = DATAMOVIMENTO quando preenchida, senão DATAEMISSAO
-        watermark_column="DATA_REF",
+        # DATAHISTORICO: sempre preenchida — usada no filtro/watermark
+        # DATAMOVIMENTO: COALESCE(DATAMOVIMENTO, DATAHISTORICO) para preencher NULLs
+        watermark_column="DATAMOVIMENTO",
         oracle_sql="""
             SELECT
-                TO_CHAR(SEQUENCIACARGAESTOQUE)          AS SEQUENCIAMOVIMENTO,
+                TO_CHAR(SEQUENCIAMOVIMENTO)             AS SEQUENCIAMOVIMENTO,
                 CODIGOPRODUTO,
                 TO_CHAR(CODIGOESTABELECIMENTO)          AS CODIGOESTABELECIMENTO,
                 CODIGODEPOSITANTE,
-                NULL                                    AS QUANTIDADEANTERIOR,
-                QUANTIDADE                              AS QUANTIDADEATUAL,
-                DATAMOVIMENTO,
-                DATAEMISSAO,
-                COALESCE(DATAMOVIMENTO, DATAEMISSAO)    AS DATA_REF,
-                NATUREZAOPERACAO                        AS ESTADOMOVIMENTO,
-                NULL                                    AS USUARIO,
-                NUMERODOCUMENTO                         AS OBSERVACAO
-            FROM ORAINT.CARGAESTOQUE
-            WHERE COALESCE(DATAMOVIMENTO, DATAEMISSAO) >= :start_date
-            ORDER BY COALESCE(DATAMOVIMENTO, DATAEMISSAO), SEQUENCIACARGAESTOQUE
+                QUANTIDADEANTERIOR,
+                QUANTIDADEATUAL,
+                COALESCE(DATAMOVIMENTO, DATAHISTORICO)  AS DATAMOVIMENTO,
+                TO_CHAR(ESTADOMOVIMENTO)                AS ESTADOMOVIMENTO,
+                USUARIO,
+                OBSERVACAO
+            FROM WMAS.MOVIMENTOENTRADASAIDA
+            WHERE DATAHISTORICO >= :start_date
+            ORDER BY DATAHISTORICO, SEQUENCIAMOVIMENTO
         """,
     ),
     EntitySpec(

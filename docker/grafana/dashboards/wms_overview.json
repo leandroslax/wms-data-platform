@@ -2,7 +2,7 @@
   "title": "WMS Operations Overview",
   "uid": "wms-overview",
   "schemaVersion": 37,
-  "version": 1,
+  "version": 2,
   "refresh": "1m",
   "tags": ["wms"],
   "panels": [
@@ -24,17 +24,17 @@
     },
     {
       "id": 3, "gridPos": {"x":12,"y":0,"w":6,"h":4},
-      "type": "stat", "title": "SLA no Prazo (%)",
+      "type": "stat", "title": "Pedidos em Aberto",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT ROUND(COUNT(CASE WHEN sla_status IN ('on_time','on_time_express') THEN 1 END)*100.0/NULLIF(COUNT(*),0)::numeric,1) FROM gold.mart_order_sla WHERE sla_status != 'pending'", "format": "table", "refId": "A"}],
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM gold.mart_order_sla WHERE sla_status = 'pending'", "format": "table", "refId": "A"}],
       "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"unit": "percent", "thresholds": {"steps": [{"color":"red","value":0},{"color":"yellow","value":80},{"color":"green","value":95}]}}}
+      "fieldConfig": {"defaults": {"color": {"fixedColor": "blue", "mode": "fixed"}, "thresholds": {"steps": [{"color":"blue","value":0}]}}}
     },
     {
       "id": 4, "gridPos": {"x":18,"y":0,"w":6,"h":4},
-      "type": "stat", "title": "Movimentações Totais",
+      "type": "stat", "title": "Produtos Cadastrados",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT COUNT(*) FROM gold.fct_movements", "format": "table", "refId": "A"}],
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM gold.dim_products", "format": "table", "refId": "A"}],
       "options": {"colorMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
       "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"blue","value":0}]}}}
     },
@@ -54,16 +54,16 @@
       "options": {"xField": "Armazém", "stacking": "normal"}
     },
     {
-      "id": 7, "gridPos": {"x":0,"y":13,"w":12,"h":8},
-      "type": "table", "title": "SLA de Pedidos",
+      "id": 7, "gridPos": {"x":0,"y":13,"w":12,"h":9},
+      "type": "table", "title": "Pedidos por Tipo de Documento",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT sla_status AS \"Status SLA\", COUNT(*) AS \"Qtd Pedidos\", ROUND(AVG(cycle_time_hours)::numeric,1) AS \"Tempo Médio (h)\", ROUND(COUNT(*)*100.0/SUM(COUNT(*)) OVER()::numeric,1) AS \"% do Total\" FROM gold.mart_order_sla WHERE sla_status != 'pending' GROUP BY 1 ORDER BY 2 DESC", "format": "table", "refId": "A"}]
+      "targets": [{"rawSql": "SELECT document_type AS \"Tipo\", company_id AS \"Empresa\", COUNT(*) AS \"Qtd\", ROUND(AVG(total_value)::numeric, 2) AS \"Valor Médio\", MIN(issued_at)::date AS \"Primeiro\", MAX(issued_at)::date AS \"Último\" FROM gold.fct_orders GROUP BY 1,2 ORDER BY 3 DESC LIMIT 20", "format": "table", "refId": "A"}]
     },
     {
-      "id": 8, "gridPos": {"x":12,"y":13,"w":12,"h":8},
-      "type": "table", "title": "Top Operadores — Produtividade",
+      "id": 8, "gridPos": {"x":12,"y":13,"w":12,"h":9},
+      "type": "table", "title": "Volume de Pedidos por Mês",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT operator_user AS \"Operador\", SUM(total_movements) AS \"Total Movimentos\", SUM(total_qty_moved) AS \"Qtd Total\", COUNT(DISTINCT period_date) AS \"Dias Ativos\" FROM gold.mart_operator_productivity GROUP BY 1 ORDER BY 2 DESC LIMIT 10", "format": "table", "refId": "A"}]
+      "targets": [{"rawSql": "SELECT TO_CHAR(issued_month, 'YYYY-MM') AS \"Mês\", company_id AS \"Empresa\", depositor_id AS \"Depositante\", order_count AS \"Pedidos\", ROUND(total_value::numeric, 2) AS \"Valor Total\", ROUND(sla_compliance_pct::numeric, 1) AS \"SLA %\" FROM gold.mart_geo_performance ORDER BY issued_month DESC, order_count DESC LIMIT 20", "format": "table", "refId": "A"}]
     }
   ]
 }

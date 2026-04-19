@@ -23,7 +23,7 @@ VECTOR_SIZE = 768
 def _get_client() -> QdrantClient:
     url = os.getenv("QDRANT_URL", "http://localhost:6333")
     api_key = os.getenv("QDRANT_API_KEY")
-    return QdrantClient(url=url, api_key=api_key)
+    return QdrantClient(url=url, api_key=api_key, check_compatibility=False, timeout=10)
 
 
 def _embed(text: str) -> list[float]:
@@ -66,7 +66,15 @@ def qdrant_semantic_search(question: str) -> str:
     """
     try:
         client = _get_client()
-        ensure_collection_exists(client)
+
+        # Verifica se a coleção existe e tem documentos — retorna rápido se vazia
+        existing = {c.name for c in client.get_collections().collections}
+        if COLLECTION_NAME not in existing:
+            return "Base de conhecimento ainda não indexada. Execute o DAG dag_embed_rag para indexar os runbooks e ADRs."
+
+        count = client.count(collection_name=COLLECTION_NAME).count
+        if count == 0:
+            return "Base de conhecimento vazia. Execute o DAG dag_embed_rag para indexar os runbooks e ADRs."
 
         embedding = _embed(question)
         results = client.search(
@@ -95,4 +103,4 @@ def qdrant_semantic_search(question: str) -> str:
         return "\n\n---\n\n".join(docs)
 
     except Exception as e:
-        return f"Erro ao buscar no Qdrant: {e}"
+        return f"Base de conhecimento indisponível: {e}"
