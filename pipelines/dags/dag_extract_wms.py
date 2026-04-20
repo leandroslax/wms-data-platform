@@ -17,6 +17,8 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
+from wms_datasets import BRONZE_REFRESH_DATASET
+
 EXTRACTION_SCRIPT = "/opt/airflow/pipelines/extraction/oracle_to_postgres.py"
 WATERMARKS_FILE   = "/opt/airflow/pipelines/extraction/artifacts/_watermarks.json"
 
@@ -108,6 +110,7 @@ with DAG(
     log_counts = PythonOperator(
         task_id="log_bronze_counts",
         python_callable=_log_bronze_counts,
+        outlets=[BRONZE_REFRESH_DATASET],
     )
 
     check_oracle >> extract >> log_counts

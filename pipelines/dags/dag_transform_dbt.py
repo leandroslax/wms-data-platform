@@ -1,7 +1,7 @@
 """dag_transform_dbt — Transformações dbt (bronze → silver → gold).
 
-Schedule: diário às 03:00 UTC (2h após dag_extract_wms)
-Dependência: espera dag_extract_wms completar via ExternalTaskSensor
+Schedule: disparada quando a extração bronze termina
+Dependência: evento de dataset emitido por dag_extract_wms.log_bronze_counts
 
 Tasks:
     wait_for_extract  → aguarda dag_extract_wms terminar
@@ -17,7 +17,8 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
-from airflow.sensors.external_task import ExternalTaskSensor
+
+from wms_datasets import BRONZE_REFRESH_DATASET, DBT_GOLD_REFRESH_DATASET
 
 DBT_PROJECT_DIR  = "/opt/airflow/dbt_wms"
 DBT_PROFILES_DIR = "/opt/airflow/dbt_wms"
@@ -69,24 +70,12 @@ with DAG(
     dag_id="dag_transform_dbt",
     description="dbt run bronze → silver → gold (todos os modelos)",
     start_date=datetime(2026, 1, 1),
-    schedule_interval="0 3 * * *",   # 03:00 UTC diário
+    schedule=[BRONZE_REFRESH_DATASET],
     catchup=False,
     max_active_runs=1,
     default_args=default_args,
     tags=["wms", "dbt", "gold"],
 ) as dag:
-
-    wait_for_extract = ExternalTaskSensor(
-        task_id="wait_for_extract",
-        external_dag_id="dag_extract_wms",
-        external_task_id="log_bronze_counts",
-        execution_delta=timedelta(hours=2),
-        timeout=3600,          # aguarda até 1h
-        poke_interval=60,
-        mode="reschedule",     # libera worker enquanto espera
-        allowed_states=["success"],
-        failed_states=["failed", "skipped"],
-    )
 
     dbt_run = BashOperator(
         task_id="dbt_run",
@@ -132,6 +121,7 @@ with DAG(
     log_counts = PythonOperator(
         task_id="log_gold_counts",
         python_callable=_log_gold_counts,
+        outlets=[DBT_GOLD_REFRESH_DATASET],
     )
 
-    wait_for_extract >> dbt_run >> dbt_test >> log_counts
+    dbt_run >> dbt_test >> log_counts
