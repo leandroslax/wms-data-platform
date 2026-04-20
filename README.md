@@ -1,30 +1,44 @@
 # WMS Data Platform
 
-Plataforma de dados moderna construída sobre Oracle WMS, cobrindo o ciclo completo de engenharia de dados: ingestão incremental, arquitetura medallion local, transformações dbt, serving via PostgreSQL e camada de agentes de IA conversacional com RAG.
+Plataforma de dados moderna construída sobre Oracle WMS, cobrindo o ciclo completo de engenharia de dados: extração incremental via CDC-like watermark, arquitetura medallion no PostgreSQL local, transformações dbt, serving via FastAPI e camada de agentes de IA conversacional com RAG.
 
-> Toda a stack roda localmente via Docker Compose — sem dependência de nuvem.
+> A stack local roda via Docker Compose. A extração de dados reais requer acesso VPN ao Oracle WMS (host `172.31.200.25`, service `WMS`).
 
 ---
 
-## Quick Start
+## Quick Start (dados de demonstração)
 
 ```bash
 git clone https://github.com/leandrolps/wms-data-platform.git
 cd wms-data-platform
 
-cp .env.example .env          # preencha ANTHROPIC_API_KEY e LANGFUSE_*
+cp .env.example .env          # preencha ANTHROPIC_API_KEY
 
-make up                       # sobe PostgreSQL, Qdrant, MinIO, Airflow e API
-make dbt-run                  # seed bronze → dbt run (8 marts no gold)
-make dbt-test                 # roda os testes dbt
+make up                       # sobe PostgreSQL, Qdrant, MinIO, Airflow, Grafana e API
+make dbt-run-demo             # seed bronze → dbt run (marts analíticos)
 ```
 
-Serviços disponíveis após `make up`:
+## Quick Start (dados reais — requer VPN + Oracle)
+
+```bash
+cp .env.example .env          # preencha ANTHROPIC_API_KEY + credenciais Oracle
+
+make up
+make extract-full             # extrai 90 dias do Oracle WMS → bronze
+make dbt-run                  # roda dbt sobre os dados extraídos
+
+# Indexa ADRs/runbooks no Qdrant para o ResearchAgent
+python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhost:6333
+```
+
+### Serviços disponíveis após `make up`
 
 | Serviço | URL |
 |---|---|
 | API FastAPI | http://localhost:8000 |
+| Chat (UI) | http://localhost:8000/chat |
 | Docs interativos | http://localhost:8000/docs |
+| Grafana | http://localhost:3000 (admin/admin) |
 | Airflow | http://localhost:8080 (admin/admin) |
 | MinIO Console | http://localhost:9001 |
 | Qdrant Dashboard | http://localhost:6333/dashboard |
@@ -34,30 +48,34 @@ Serviços disponíveis após `make up`:
 ## Arquitetura
 
 ```
-Dados de exemplo (seed.py)
-         │
-         ▼
-  PostgreSQL — schema bronze     ← Fonte única de verdade (local)
-         │
-  dbt Core (target: local)
-         │
-  PostgreSQL — schema silver     ← Normalizado, dedupado, tipado
-         │
-  dbt marts analíticos
-         │
-  PostgreSQL — schema gold       ← 8 marts prontos para consumo
-         │
-         ├──► Agentes IA
-         │    AnalystAgent  (SQL sobre gold)
-         │    ResearchAgent (RAG sobre runbooks/ADRs)
-         │    ReporterAgent (síntese executiva)
-         │         │
-         │    FastAPI  →  POST /chat
-         │
-         ├──► Qdrant (local)     ← Vector store para RAG
-         ├──► MinIO (local)      ← Object storage (artefatos, checkpoints)
-         └──► Airflow (local)    ← Orquestração dos pipelines
+Oracle WMS (172.31.200.25)
+  └─[watermark]─► oracle_to_postgres.py ──► PostgreSQL — schema bronze
+                                                    │
+                                             dbt Core (target: local)
+                                                    │
+                                             schema silver  ← staging views
+                                                    │
+                                             schema gold    ← 8 marts analíticos
+                                                    │
+                              ┌─────────────────────┤
+                           Agentes IA            Grafana
+                      AnalystAgent (SQL)      WMS Operations
+                      ResearchAgent (RAG)     Overview Dashboard
+                      ReporterAgent (síntese)
+                              │
+                         FastAPI /chat
+                              │
+                     HTML Chat UI (localhost:8000/chat)
 ```
+
+### Tabelas Oracle extraídas
+
+| Tabela Oracle | Bronze PostgreSQL | Modo | Volume |
+|---|---|---|---|
+| `ORAINT.DOCUMENTO` | `bronze.orders_documento` | watermark (DATAEMISSAO) | ~4.200 docs/90d |
+| `WMAS.ESTOQUEPRODUTO` | `bronze.inventory_produtoestoque` | snapshot | 4 posições |
+| `WMAS.MOVIMENTOENTRADASAIDA` | `bronze.movements_entrada_saida` | watermark (DATAHISTORICO) | ~870k movim/90d |
+| `ORAINT.PRODUTO` | `bronze.products_snapshot` | snapshot | 5.376 produtos |
 
 ---
 
@@ -67,25 +85,23 @@ Dados de exemplo (seed.py)
 
 - PostgreSQL 16 com schemas `bronze`, `silver`, `gold` provisionados via `docker/postgres/init.sql`
 - Qdrant v1.9 para vector store local
-- MinIO para object storage local (substitui S3)
-- Airflow 2 com LocalExecutor (webserver + scheduler)
+- MinIO para object storage local
+- Airflow 2 com LocalExecutor
+- Grafana com datasource PostgreSQL e dashboard WMS Operations Overview
 - FastAPI com hot-reload montado como volume
 
 ---
 
 ### ✅ Bronze (PostgreSQL local)
 
-Tabelas criadas automaticamente na inicialização do container:
+Populado via extração Oracle real ou `make seed` (dados de demonstração).
 
 | Tabela | Descrição |
 |---|---|
-| `bronze.orders_documento` | Documentos de saída (NF, OS, TE) |
+| `bronze.orders_documento` | Documentos de saída (NF, OS, TE) — chave: `SEQUENCIAINTEGRACAO` |
 | `bronze.inventory_produtoestoque` | Posição de estoque por produto/armazém |
-| `bronze.movements_entrada_saida` | Movimentações de entrada e saída |
+| `bronze.movements_entrada_saida` | Movimentações entrada/saída — fonte: `WMAS.MOVIMENTOENTRADASAIDA` |
 | `bronze.products_snapshot` | Snapshot de cadastro de produtos |
-| `bronze.orders_documentodetalhe` | Itens/linhas de documento |
-
-Dados populados via `make seed` (200 orders, 500 movements, 60 inventory rows, 60 product snapshots).
 
 ---
 
@@ -96,57 +112,79 @@ Dados populados via `make seed` (200 orders, 500 movements, 60 inventory rows, 6
 
 | Modelo | Tipo | Chave |
 |---|---|---|
-| `stg_orders` | view | `order_id` |
+| `stg_orders` | view | `order_id` (SEQUENCIAINTEGRACAO) |
 | `stg_inventory` | view | `inventory_id` |
 | `stg_movements` | view | `movement_id` |
-| `fct_orders` | table | `order_id` |
-| `fct_inventory_snapshot` | table | `inventory_id` |
-| `fct_movements` | table | `movement_id` |
-| `dim_products` | table | `product_id` |
+| `fct_orders` | incremental | `order_id` |
+| `fct_inventory_snapshot` | incremental | `inventory_id` |
+| `fct_movements` | incremental | `movement_id` |
+| `dim_products` | incremental | `product_id` |
 
 ---
 
 ### ✅ Gold — 8 Marts Analíticos
 
-Todos os marts implementados, validados com DuckDB e rodando em PostgreSQL local:
+Todos implementados e rodando com dados reais do Oracle WMS.
 
-| Mart | Descrição |
-|---|---|
-| `mart_picking_performance` | Produtividade por operador e turno |
-| `mart_inventory_health` | Giro, cobertura e risco de ruptura |
-| `mart_order_sla` | Tempo de ciclo e aderência ao prazo |
-| `mart_operator_productivity` | Ranking com contexto de complexidade |
-| `mart_stockout_risk` | Projeção de ruptura por SKU |
-| `mart_geo_performance` | SLA por estado/cidade |
-| `mart_geo_inventory` | Cobertura de estoque por região |
-| `mart_weather_impact` | Correlação atraso × clima |
+| Mart | Descrição | Dados reais |
+|---|---|---|
+| `mart_picking_performance` | Produtividade por operador e turno | ✅ 3.746 linhas |
+| `mart_operator_productivity` | Ranking com contexto de complexidade | ✅ 4.079 linhas |
+| `mart_order_sla` | Tempo de ciclo e aderência ao prazo | ✅ (pedidos pendentes) |
+| `mart_inventory_health` | Giro, cobertura e risco de ruptura | ✅ 4 posições |
+| `mart_stockout_risk` | Projeção de ruptura por SKU | ✅ 4 SKUs |
+| `mart_geo_performance` | SLA por empresa/depositante/mês | ✅ |
+| `mart_geo_inventory` | Cobertura de estoque por região | ✅ |
+| `mart_weather_impact` | Correlação atraso × clima (pendente enriquecimento) | ⚠️ vazio |
 
 ---
 
-### ✅ Agentes IA (código pronto)
+### ✅ Agentes IA (end-to-end funcionando)
 
-Stack: CrewAI + LangChain + Claude (Anthropic API) + Qdrant local + LangFuse
+Stack: CrewAI + Claude (Anthropic API) + PostgreSQL (gold) + Qdrant (RAG)
 
 | Agent | Arquivo | Função |
 |---|---|---|
-| `AnalystAgent` | `app/agents/analyst_agent.py` | SQL sobre marts gold |
-| `ResearchAgent` | `app/agents/research_agent.py` | RAG sobre runbooks/ADRs via Qdrant |
-| `ReporterAgent` | `app/agents/reporter_agent.py` | Síntese executiva |
+| `AnalystAgent` | `app/agents/analyst_agent.py` | Gera e executa SQL sobre marts gold |
+| `ResearchAgent` | `app/agents/research_agent.py` | RAG sobre 86 chunks de ADRs/runbooks via Qdrant |
+| `ReporterAgent` | `app/agents/reporter_agent.py` | Síntese executiva em Markdown estruturado |
 | `WMSCrew` | `app/agents/wms_crew.py` | Orquestra os três agentes em sequência |
+
+**Qdrant:** 86 vetores indexados (18 docs: 3 ADRs, 1 runbook, arquitetura, contratos).  
+**Perguntas de exemplo:**
+- "Quais empresas têm mais pedidos?"
+- "Por que o projeto usa Iceberg em vez de Delta Lake?"
+- "Qual o desempenho dos operadores esta semana?"
+- "Como recuperar o pipeline em caso de falha?"
 
 ---
 
-### ✅ API FastAPI
+### ✅ Grafana Dashboard
 
-- `GET /health` — status da API
-- `POST /chat` — pergunta em linguagem natural → resposta via WMSCrew
-- `GET /inventory`, `/movements`, `/orders` — endpoints de consulta direta
+Dashboard **WMS Operations Overview** com 8 painéis:
+- Produtos em Risco Crítico, Total de Pedidos, Pedidos em Aberto, Produtos Cadastrados
+- Top Produtos — Risco de Ruptura (tabela)
+- Distribuição de Risco por Armazém (bar chart)
+- Pedidos por Tipo de Documento
+- Volume de Pedidos por Mês (SLA %)
+
+---
+
+### ✅ RAG — Qdrant Indexado
+
+Script `pipelines/rag/embed_docs.py` indexa todos os docs em `docs/`:
+
+```bash
+python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhost:6333
+```
+
+Modelo: `BAAI/bge-base-en-v1.5` (768 dims, FastEmbed). Coleção: `wms_operational_docs`.
 
 ---
 
 ### ⚠️ Orquestração Airflow (stubs)
 
-6 DAGs escritas como placeholders — lógica interna pendente:
+6 DAGs com estrutura definida — lógica interna pendente:
 
 | DAG | Schedule |
 |---|---|
@@ -161,7 +199,7 @@ Stack: CrewAI + LangChain + Claude (Anthropic API) + Qdrant local + LangFuse
 
 ### ❌ Enriquecimento Geográfico/Climático
 
-Pendente para `mart_geo_performance`, `mart_geo_inventory` e `mart_weather_impact`:
+Pendente para `mart_geo_performance` completo e `mart_weather_impact`:
 - ViaCEP — CEP → cidade, estado, coordenadas
 - IBGE — dados demográficos por município
 - INMET — histórico climático por cidade/data
@@ -171,7 +209,7 @@ Pendente para `mart_geo_performance`, `mart_geo_inventory` e `mart_weather_impac
 
 ### ❌ Frontend React
 
-Não iniciado. Previsto: `ChatInterface`, `InventoryDashboard`, `OperationsDashboard`, `GeoMapDashboard`.
+Não iniciado. Previsto: `ChatInterface`, `InventoryDashboard`, `OperationsDashboard`.
 
 ---
 
@@ -180,27 +218,30 @@ Não iniciado. Previsto: `ChatInterface`, `InventoryDashboard`, `OperationsDashb
 ```
 CONCLUÍDO
 ─────────────────────────────────────────────────
-✅ Docker Compose (PostgreSQL, Qdrant, MinIO, Airflow, API)
-✅ Bronze — tabelas e seed de dados
+✅ Docker Compose (PostgreSQL, Qdrant, MinIO, Airflow, Grafana, API)
+✅ Extração Oracle real: 4.176 pedidos, 869k movimentos, 5.376 produtos
+✅ Bronze — tabelas, seed demo e extração watermark
 ✅ Silver — 7 modelos dbt (staging + fct + dim)
-✅ Gold — 8 marts analíticos implementados e validados
+✅ Gold — 8 marts analíticos com dados reais
 ✅ dbt cross-db compat (PostgreSQL, DuckDB, Glue/Spark)
-✅ Agentes (AnalystAgent, ResearchAgent, ReporterAgent, WMSCrew)
-✅ API FastAPI com rota /chat
-✅ KB e documentação (.claude/)
+✅ Agentes IA end-to-end (AnalystAgent + ResearchAgent + ReporterAgent)
+✅ RAG — 86 chunks indexados (ADRs, runbooks, arquitetura)
+✅ API FastAPI com rota /chat + HTML chat UI
+✅ Grafana dashboard com dados reais
 
 EM ANDAMENTO
 ─────────────────────────────────────────────────
 ⬜ DAGs Airflow — implementar lógica interna
-⬜ Qdrant — indexar runbooks e ADRs (dag_embed_rag)
-⬜ Agentes — testes de integração com PostgreSQL local
+⬜ mart_order_sla — mapear delivered_at no Oracle
+⬜ Testes de integração dos agentes (DeepEval)
 
 PRÓXIMOS PASSOS
 ─────────────────────────────────────────────────
 ⬜ Enriquecimento — ViaCEP, IBGE, INMET, ANTT
 ⬜ Frontend React — ChatInterface + dashboards
 ⬜ CI/CD — GitHub Actions (lint, test, dbt compile)
-⬜ Observabilidade — LangFuse traces, DeepEval evals, Grafana
+⬜ Observabilidade — LangFuse traces, DeepEval evals
+⬜ Deploy AWS — Terraform, Lambda, Redshift Serverless
 ```
 
 ---
@@ -213,10 +254,11 @@ PRÓXIMOS PASSOS
 | Banco de dados | PostgreSQL 16 (bronze / silver / gold) |
 | Object storage | MinIO (local) |
 | Transformação | dbt Core 1.10 + dbt-postgres |
-| Agentes | CrewAI + LangChain + Claude (Anthropic API) |
-| Vector store | Qdrant (local) |
+| Agentes | CrewAI + Claude (Anthropic API) |
+| Vector store | Qdrant v1.9 (local) |
 | API | FastAPI + Uvicorn |
 | Orquestração | Apache Airflow 2 (LocalExecutor) |
+| Dashboards | Grafana Cloud / local |
 | Observabilidade | LangFuse, DeepEval |
 | Infra local | Docker Compose |
 
@@ -227,31 +269,36 @@ PRÓXIMOS PASSOS
 ```
 docker/
   postgres/
-    init.sql          # cria schemas e tabelas bronze
-    seed.py           # popula bronze com dados de amostra
+    init.sql              # cria schemas e tabelas bronze
+    seed.py               # popula bronze com dados de amostra
+  grafana/
+    dashboards/           # wms_overview.json
+    provisioning/         # datasource PostgreSQL
 
 transform/dbt_wms/
-  models/staging/     # 3 views (stg_orders, stg_inventory, stg_movements)
-  models/intermediate/# fct e dim (7 modelos)
-  models/marts/       # 8 marts analíticos gold ✅
-  macros/compat.sql   # wms_epoch, wms_hour, wms_today (cross-db)
-  profiles.yml        # target local (PostgreSQL) + dev/prod (Glue)
+  models/staging/         # 3 views (stg_orders, stg_inventory, stg_movements)
+  models/marts/           # 8 marts analíticos gold
+  macros/compat.sql       # wms_epoch, wms_hour, wms_today (cross-db)
+  profiles.yml            # target local (PostgreSQL) + dev/prod (Glue)
 
 app/
-  agents/             # AnalystAgent, ResearchAgent, ReporterAgent, WMSCrew
-  api/                # FastAPI: main, routes, schemas, services
+  agents/                 # AnalystAgent, ResearchAgent, ReporterAgent, WMSCrew
+  api/                    # FastAPI: main, routes, schemas, services
   requirements.txt
   Dockerfile
 
 pipelines/
-  extraction/         # extratores Oracle → bronze (para produção futura)
-  dags/               # 6 DAGs Airflow (stubs)
-  enrichment/         # ViaCEP, IBGE, INMET, ANTT (pendente)
+  extraction/
+    oracle_to_postgres.py # extrai Oracle → bronze (watermark + snapshot)
+  rag/
+    embed_docs.py         # indexa docs/ no Qdrant (BAAI/bge-base-en-v1.5)
+  dags/                   # 6 DAGs Airflow (stubs)
+  enrichment/             # ViaCEP, IBGE, INMET, ANTT (pendente)
 
-web/                  # React + Vite (não iniciado)
-
-docs/                 # arquitetura, ADRs, runbooks
-.claude/              # KB (18 domínios), sub-agents, comandos
+docs/
+  adr/                    # 3 ADRs (Iceberg, CDC, Glue vs Redshift)
+  runbooks/               # pipeline-recovery.md
+  architecture.md         # arquitetura completa
 
 docker-compose.yml
 Makefile
@@ -263,13 +310,25 @@ Makefile
 ## Comandos Úteis
 
 ```bash
-make up           # sobe todos os serviços (--build incluso)
-make down         # para e remove os containers
-make seed         # popula bronze com dados de amostra
-make dbt-run      # seed + dbt run --target local
-make dbt-test     # dbt test --target local
-make dbt-docs     # gera e serve dbt docs em localhost:8080
-make dbt-validate # valida marts com DuckDB (sem Docker)
-make api-dev      # uvicorn local sem Docker (dev rápido)
-make logs         # docker compose logs -f
+# Stack
+make up               # sobe todos os serviços
+make down             # para e remove containers
+make logs             # docker compose logs -f
+
+# Dados demo
+make seed             # popula bronze com seed
+make dbt-run-demo     # seed + dbt run
+
+# Dados reais (requer VPN + Oracle)
+make extract-full     # extração full 90 dias Oracle → bronze
+make extract          # extração incremental
+make dbt-run          # dbt run sobre bronze atual
+make pipeline-real    # clean-bronze + extract-full + dbt-run
+
+# dbt
+make dbt-test         # dbt test
+make dbt-docs         # gera e serve dbt docs em localhost:8080
+
+# RAG
+# python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhost:6333
 ```
