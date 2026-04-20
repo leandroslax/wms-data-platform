@@ -15,3 +15,22 @@ variable "aws_account_id" {
   type        = string
   default     = "896159010925"
 }
+
+variable "ssh_public_key" {
+  description = "Chave pública SSH para acesso à EC2 extratora (conteúdo do ~/.ssh/id_rsa.pub ou similar)"
+  type        = string
+  default     = ""
+}
+
+variable "ssh_allowed_cidrs" {
+  description = "CIDRs autorizados para SSH na EC2 (use seu IP: curl ifconfig.me)"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "redshift_admin_password" {
+  description = "Admin password for Redshift Serverless namespace."
+  type        = string
+  sensitive   = true
+  default     = "WmsAdmin2026!"  # trocar antes do deploy em prod
+}

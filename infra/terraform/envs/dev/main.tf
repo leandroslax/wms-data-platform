@@ -15,19 +15,27 @@ provider "aws" {
 
 locals {
   environment = "dev"
-}
 
-module "iam" {
-  source       = "../../modules/iam"
-  environment  = local.environment
-  project_name = var.project_name
+  # default_tags definido aqui para evitar dependência circular entre iam e secrets
+  default_tags = {
+    project     = var.project_name
+    environment = local.environment
+    managed_by  = "terraform"
+  }
 }
 
 module "secrets" {
   source       = "../../modules/secrets"
   environment  = local.environment
   project_name = var.project_name
-  tags         = module.iam.default_tags
+  tags         = local.default_tags
+}
+
+module "iam" {
+  source       = "../../modules/iam"
+  environment  = local.environment
+  project_name = var.project_name
+  kms_key_arns = [module.secrets.kms_key_arn]
 }
 
 module "s3" {
@@ -37,14 +45,14 @@ module "s3" {
   aws_region     = var.aws_region
   aws_account_id = var.aws_account_id
   kms_key_arn    = module.secrets.kms_key_arn
-  tags           = module.iam.default_tags
+  tags           = local.default_tags
 }
 
 module "ecr" {
   source       = "../../modules/ecr"
   environment  = local.environment
   project_name = var.project_name
-  tags         = module.iam.default_tags
+  tags         = local.default_tags
 }
 
 module "lambda" {
@@ -55,7 +63,7 @@ module "lambda" {
   kms_key_arn     = module.secrets.kms_key_arn
   image_uri       = "896159010925.dkr.ecr.us-east-1.amazonaws.com/wms-data-platform-dev-lambda:latest"
   secret_arns     = module.secrets.secret_arns
-  tags            = module.iam.default_tags
+  tags            = local.default_tags
 }
 
 module "monitoring" {
@@ -63,5 +71,22 @@ module "monitoring" {
   environment           = local.environment
   project_name          = var.project_name
   lambda_function_names = module.lambda.lambda_function_names
-  tags                  = module.iam.default_tags
+  tags                  = local.default_tags
 }
+
+module "redshift" {
+  source         = "../../modules/redshift"
+  environment    = local.environment
+  project_name   = var.project_name
+  aws_region     = var.aws_region
+  aws_account_id = var.aws_account_id
+  kms_key_arn    = module.secrets.kms_key_arn
+  glue_role_arn  = module.iam.glue_role_arn
+  gold_bucket_arn = "arn:aws:s3:::wms-dp-dev-gold-us-east-1-${var.aws_account_id}"
+  admin_password  = var.redshift_admin_password
+  tags            = local.default_tags
+}
+
+# módulos vpc e ec2_extractor desativados no dev
+# ativar quando o cliente liberar o IP 54.81.42.217 na VPN FortiGate
+# e apontar para o ambiente prod

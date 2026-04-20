@@ -27,3 +27,16 @@ output "lambda_function_names" {
   description = "Lambda functions created for the platform"
   value       = module.lambda.lambda_function_names
 }
+
+output "redshift_workgroup_endpoint" {
+  description = "Redshift Serverless workgroup endpoint"
+  value       = module.redshift.workgroup_endpoint
+}
+
+output "redshift_workgroup_host" {
+  description = "Redshift Serverless hostname"
+  value       = module.redshift.workgroup_host
+}
+
+# outputs do ec2_extractor desativados junto com o módulo
+# reativar quando vpc e ec2_extractor forem habilitados no prod

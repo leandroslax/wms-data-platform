@@ -2,6 +2,9 @@ locals {
   bucket_prefix = "wms-dp-${var.environment}"
 
   buckets = {
+    raw = {
+      name = "${local.bucket_prefix}-raw-${var.aws_region}-${var.aws_account_id}"
+    }
     bronze = {
       name = "${local.bucket_prefix}-bronze-${var.aws_region}-${var.aws_account_id}"
     }

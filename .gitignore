@@ -39,3 +39,30 @@ htmlcov/
 
 # Misc
 *.log
+
+# env
+.env*
+.venv*
+.venv-extract/
+
+# artifacts / logs
+artifacts/
+*.log
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# python
+__pycache__/
+*.pyc
+
+# dbt
+transform/dbt_wms/target/
+transform/dbt_wms/.user.yml
+transform/dbt_wms/terraform.tfvars
+
+# claude / editor local settings
+.claude/settings.local.json
+

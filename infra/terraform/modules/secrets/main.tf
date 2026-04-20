@@ -14,6 +14,7 @@ locals {
     oracle_credentials = jsonencode({ username = "wms_reader", password = "change-me", dsn = "change-me" })
     qdrant             = jsonencode({ url = "change-me", api_key = "change-me" })
     langfuse           = jsonencode({ public_key = "change-me", secret_key = "change-me", host = "change-me" })
+    redshift           = jsonencode({ host = "change-me", port = 5439, dbname = "wms", username = "wmsadmin", password = "change-me" })
   }
 }
 

@@ -10,6 +10,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
+import boto3
 import oracledb
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -119,6 +120,15 @@ EXPORT_SPECS: List[ExportSpec] = [
             SELECT *
             FROM ORAINT.MOVIMENTOESTOQUE
             ORDER BY SEQUENCIAMOVIMENTOESTOQUE
+        """.strip(),
+    ),
+    ExportSpec(
+        name="wms_inventory_config",
+        mode="snapshot_full",
+        sql="""
+            SELECT *
+            FROM WMAS.INVENTARIO
+            ORDER BY CODIGOESTABELECIMENTO, CODIGOINVENTARIO
         """.strip(),
     ),
 ]
@@ -298,6 +308,7 @@ def main():
     parser.add_argument("--output-dir", default="artifacts/parquet_export")
     parser.add_argument("--env-file", default=".env.extract.prod")
     parser.add_argument("--batch-size", type=int, default=5000)
+    parser.add_argument("--s3-raw-bucket", default=os.getenv("S3_RAW_BUCKET"), help="Bucket raw para upload dos Parquet")
     args = parser.parse_args()
 
     run_start = time.time()
@@ -333,6 +344,22 @@ def main():
         save_watermarks(watermark_path, watermarks)
 
     save_watermarks(watermark_path, watermarks)
+
+    # ── upload para S3 raw ────────────────────────────────────────────────────
+    if args.s3_raw_bucket:
+        run_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        s3_client = boto3.client("s3")
+        uploaded = 0
+        for item in results:
+            if item.get("path") is None:
+                continue
+            local_path = Path(item["path"])
+            s3_key = f"entity={item['entity']}/date={run_date}/{local_path.name}"
+            print(f"  upload → s3://{args.s3_raw_bucket}/{s3_key}")
+            s3_client.upload_file(str(local_path), args.s3_raw_bucket, s3_key)
+            item["s3_uri"] = f"s3://{args.s3_raw_bucket}/{s3_key}"
+            uploaded += 1
+        print(f"  {uploaded} arquivo(s) enviados para s3://{args.s3_raw_bucket}/")
 
     summary_path = output_root / "_state" / "last_run_summary.json"
     summary_path.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
