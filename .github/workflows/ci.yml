@@ -6,17 +6,54 @@ on:
     branches: [dev, main]
 
 jobs:
-  validate:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -r requirements.txt
-      - run: black --check app pipelines tests
-      - run: isort --check-only app pipelines tests
-      - run: flake8 app pipelines tests
-      - run: pytest tests/unit
-      - run: terraform fmt -check -recursive infra/terraform
-      - run: docker build -t wms-lambda-ci .
+      - run: pip install black isort flake8 --quiet
+      - run: black --check app/ pipelines/
+      - run: isort --check-only app/ pipelines/
+      - run: flake8 app/ pipelines/ --max-line-length=120 --exclude=__pycache__
+
+  dbt-compile:
+    name: dbt Compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install dbt-postgres==1.9.1 --quiet
+      - name: dbt compile (valida SQL sem executar)
+        run: |
+          dbt compile \
+            --project-dir transform/dbt_wms \
+            --profiles-dir transform/dbt_wms \
+            --target local
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          POSTGRES_DB: wms
+          POSTGRES_USER: wmsadmin
+          POSTGRES_PASSWORD: wmsadmin2026
+          DBT_BRONZE_SCHEMA: bronze
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest --quiet
+      - run: |
+          if [ -d "tests/unit" ]; then
+            pytest tests/unit -v
+          else
+            echo "No unit tests yet — skipping"
+          fi

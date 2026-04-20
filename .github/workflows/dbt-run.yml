@@ -7,7 +7,64 @@ on:
 
 jobs:
   dbt:
+    name: dbt run + test
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: wmsadmin
+          POSTGRES_PASSWORD: wmsadmin2026
+          POSTGRES_DB: wms
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
-      - run: echo "Implement dbt run/test pipeline"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install dbt-postgres==1.9.1 psycopg2-binary --quiet
+
+      - name: Init bronze schema
+        run: psql -h localhost -U wmsadmin -d wms -f docker/postgres/init.sql
+        env:
+          PGPASSWORD: wmsadmin2026
+
+      - name: Seed bronze
+        run: python docker/postgres/seed.py
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PASSWORD: wmsadmin2026
+
+      - name: dbt run
+        run: |
+          dbt run \
+            --project-dir transform/dbt_wms \
+            --profiles-dir transform/dbt_wms \
+            --target local
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          POSTGRES_DB: wms
+          POSTGRES_USER: wmsadmin
+          POSTGRES_PASSWORD: wmsadmin2026
+          DBT_BRONZE_SCHEMA: bronze
+
+      - name: dbt test
+        run: |
+          dbt test \
+            --project-dir transform/dbt_wms \
+            --profiles-dir transform/dbt_wms \
+            --target local
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          POSTGRES_DB: wms
+          POSTGRES_USER: wmsadmin
+          POSTGRES_PASSWORD: wmsadmin2026
+          DBT_BRONZE_SCHEMA: bronze
