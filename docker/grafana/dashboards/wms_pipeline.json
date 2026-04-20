@@ -1,0 +1,105 @@
+{
+  "title": "WMS — Pipeline & Airflow",
+  "uid": "wms-pipeline",
+  "schemaVersion": 37,
+  "version": 1,
+  "refresh": "1m",
+  "time": {"from": "now-7d", "to": "now"},
+  "tags": ["wms", "airflow", "pipeline"],
+  "panels": [
+
+    { "id": 100, "gridPos": {"x":0,"y":0,"w":24,"h":2},
+      "type": "text", "title": "",
+      "options": {"content": "## 🔄 Airflow — Monitoramento de Pipelines", "mode": "markdown"} },
+
+    { "id": 1, "gridPos": {"x":0,"y":2,"w":6,"h":4},
+      "type": "stat", "title": "DAG Runs (últimas 24h)",
+      "datasource": "Airflow PostgreSQL",
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM dag_run WHERE start_date >= NOW() - INTERVAL '24 hours'", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"blue","value":0}]}}} },
+
+    { "id": 2, "gridPos": {"x":6,"y":2,"w":6,"h":4},
+      "type": "stat", "title": "Sucesso (24h)",
+      "datasource": "Airflow PostgreSQL",
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM dag_run WHERE state = 'success' AND start_date >= NOW() - INTERVAL '24 hours'", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"green","value":0}]}}} },
+
+    { "id": 3, "gridPos": {"x":12,"y":2,"w":6,"h":4},
+      "type": "stat", "title": "Falhas (24h)",
+      "datasource": "Airflow PostgreSQL",
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM dag_run WHERE state = 'failed' AND start_date >= NOW() - INTERVAL '24 hours'", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"green","value":0},{"color":"red","value":1}]}}} },
+
+    { "id": 4, "gridPos": {"x":18,"y":2,"w":6,"h":4},
+      "type": "stat", "title": "Em Execução",
+      "datasource": "Airflow PostgreSQL",
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM dag_run WHERE state = 'running'", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"color":{"fixedColor":"blue","mode":"fixed"}, "thresholds": {"steps": [{"color":"blue","value":0}]}}} },
+
+    { "id": 5, "gridPos": {"x":0,"y":6,"w":24,"h":9},
+      "type": "table", "title": "Histórico de DAG Runs",
+      "datasource": "Airflow PostgreSQL",
+      "targets": [{"rawSql": "SELECT dag_id AS \"DAG\", state AS \"Status\", run_type AS \"Tipo\", execution_date::timestamptz AS \"Execução\", start_date::timestamptz AS \"Início\", end_date::timestamptz AS \"Fim\", ROUND(EXTRACT(EPOCH FROM (COALESCE(end_date, NOW()) - start_date))/60, 1) AS \"Duração (min)\" FROM dag_run ORDER BY start_date DESC LIMIT 30", "format": "table", "refId": "A"}],
+      "fieldConfig": {"overrides": [{"matcher":{"id":"byName","options":"Status"},"properties":[{"id":"custom.displayMode","value":"color-background"}]}]} },
+
+    { "id": 6, "gridPos": {"x":0,"y":15,"w":12,"h":9},
+      "type": "table", "title": "Task Instances — Últimas Falhas",
+      "datasource": "Airflow PostgreSQL",
+      "targets": [{"rawSql": "SELECT dag_id AS \"DAG\", task_id AS \"Task\", state AS \"Status\", start_date::timestamptz AS \"Início\", ROUND(duration::numeric, 1) AS \"Duração (s)\", try_number AS \"Tentativa\" FROM task_instance WHERE state IN ('failed','up_for_retry') ORDER BY start_date DESC LIMIT 20", "format": "table", "refId": "A"}] },
+
+    { "id": 7, "gridPos": {"x":12,"y":15,"w":12,"h":9},
+      "type": "table", "title": "Duração Média por Task (7d)",
+      "datasource": "Airflow PostgreSQL",
+      "targets": [{"rawSql": "SELECT dag_id AS \"DAG\", task_id AS \"Task\", COUNT(*) AS \"Runs\", ROUND(AVG(duration)::numeric, 1) AS \"Média (s)\", ROUND(MAX(duration)::numeric, 1) AS \"Máx (s)\", SUM(CASE WHEN state='success' THEN 1 ELSE 0 END) AS \"✓\", SUM(CASE WHEN state='failed' THEN 1 ELSE 0 END) AS \"✗\" FROM task_instance WHERE start_date >= NOW() - INTERVAL '7 days' AND duration IS NOT NULL GROUP BY 1,2 ORDER BY 4 DESC LIMIT 20", "format": "table", "refId": "A"}] },
+
+    { "id": 200, "gridPos": {"x":0,"y":24,"w":24,"h":2},
+      "type": "text", "title": "",
+      "options": {"content": "## 🗄️ ETL — Saúde das Tabelas Bronze", "mode": "markdown"} },
+
+    { "id": 8, "gridPos": {"x":0,"y":26,"w":6,"h":4},
+      "type": "stat", "title": "bronze.orders_documento",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM bronze.orders_documento", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"green","value":0}]}}} },
+
+    { "id": 9, "gridPos": {"x":6,"y":26,"w":6,"h":4},
+      "type": "stat", "title": "bronze.movements_entrada_saida",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM bronze.movements_entrada_saida", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"green","value":0}]}}} },
+
+    { "id": 10, "gridPos": {"x":12,"y":26,"w":6,"h":4},
+      "type": "stat", "title": "bronze.inventory_produtoestoque",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM bronze.inventory_produtoestoque", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"green","value":0}]}}} },
+
+    { "id": 11, "gridPos": {"x":18,"y":26,"w":6,"h":4},
+      "type": "stat", "title": "bronze.products_snapshot",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT COUNT(*) FROM bronze.products_snapshot", "format": "table", "refId": "A"}],
+      "options": {"colorMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"green","value":0}]}}} },
+
+    { "id": 12, "gridPos": {"x":0,"y":30,"w":24,"h":7},
+      "type": "table", "title": "Última Carga por Tabela Bronze",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT 'orders_documento' AS \"Tabela\", COUNT(*) AS \"Linhas\", MAX(_cdc_loaded_at)::timestamptz AS \"Última Carga\" FROM bronze.orders_documento UNION ALL SELECT 'movements_entrada_saida', COUNT(*), MAX(_cdc_loaded_at)::timestamptz FROM bronze.movements_entrada_saida UNION ALL SELECT 'inventory_produtoestoque', COUNT(*), MAX(_cdc_loaded_at)::timestamptz FROM bronze.inventory_produtoestoque UNION ALL SELECT 'products_snapshot', COUNT(*), MAX(_cdc_loaded_at)::timestamptz FROM bronze.products_snapshot ORDER BY 1", "format": "table", "refId": "A"}] },
+
+    { "id": 300, "gridPos": {"x":0,"y":37,"w":24,"h":2},
+      "type": "text", "title": "",
+      "options": {"content": "## 🥈 Silver & 🥇 Gold — Contagem de Linhas", "mode": "markdown"} },
+
+    { "id": 13, "gridPos": {"x":0,"y":39,"w":24,"h":7},
+      "type": "table", "title": "Row Counts — Camadas Silver & Gold",
+      "datasource": "WMS PostgreSQL",
+      "targets": [{"rawSql": "SELECT schemaname AS \"Schema\", relname AS \"Tabela\", n_live_tup AS \"Linhas (aprox)\" FROM pg_stat_user_tables WHERE schemaname IN ('silver','gold') ORDER BY schemaname, relname", "format": "table", "refId": "A"}] }
+  ]
+}

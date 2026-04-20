@@ -7,7 +7,9 @@
 # ─────────────────────────────────────────────────────────────
 
 x-airflow-common: &airflow-common
-  image: apache/airflow:2.9.3
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://wmsadmin:${POSTGRES_PASSWORD:-wmsadmin2026}@postgres:5432/airflow
@@ -16,10 +18,9 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
-    _PIP_ADDITIONAL_REQUIREMENTS: "oracledb dbt-postgres==1.9.1 fastembed qdrant-client"
     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     DBT_BRONZE_SCHEMA: bronze
-    POSTGRES_HOST: wms-postgres
+    POSTGRES_HOST: postgres
     POSTGRES_PORT: "5432"
     POSTGRES_DB: wms
     POSTGRES_USER: wmsadmin
@@ -34,6 +35,7 @@ x-airflow-common: &airflow-common
     - ./pipelines/dags:/opt/airflow/dags
     - ./pipelines:/opt/airflow/pipelines
     - ./transform/dbt_wms:/opt/airflow/dbt_wms
+    - ./docs:/opt/airflow/docs
     - airflow_logs:/opt/airflow/logs
     - airflow_plugins:/opt/airflow/plugins
   depends_on:
@@ -191,6 +193,32 @@ services:
     networks:
       - wms_net
 
+  # ── Apache Superset ───────────────────────────────────────
+  superset:
+    image: apache/superset:3.1.0
+    container_name: wms-superset
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    environment:
+      SUPERSET_SECRET_KEY: "wms-superset-secret-2026"
+      SUPERSET_LOAD_EXAMPLES: "no"
+    volumes:
+      - superset_data:/app/superset_home
+    networks:
+      - wms_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -c "
+        pip install psycopg2-binary --quiet &&
+        superset db upgrade &&
+        superset fab create-admin --username admin --firstname Admin --lastname WMS --email admin@wms.local --password admin123 2>/dev/null || true &&
+        superset init &&
+        superset run -h 0.0.0.0 -p 8088
+      "
+
 volumes:
   postgres_data:
   qdrant_data:
@@ -198,6 +226,7 @@ volumes:
   airflow_logs:
   airflow_plugins:
   grafana_data:
+  superset_data:
 
 networks:
   wms_net:

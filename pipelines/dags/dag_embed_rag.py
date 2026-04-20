@@ -18,7 +18,7 @@ from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
 EMBED_SCRIPT = "/opt/airflow/pipelines/rag/embed_docs.py"
-DOCS_DIR     = "/opt/airflow/pipelines/../docs"   # resolvido em runtime
+DOCS_DIR     = "/opt/airflow/docs"
 
 default_args = {
     "owner": "data-engineering",

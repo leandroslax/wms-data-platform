@@ -80,6 +80,7 @@ with DAG(
         task_id="wait_for_extract",
         external_dag_id="dag_extract_wms",
         external_task_id="log_bronze_counts",
+        execution_delta=timedelta(hours=2),
         timeout=3600,          # aguarda até 1h
         poke_interval=60,
         mode="reschedule",     # libera worker enquanto espera
