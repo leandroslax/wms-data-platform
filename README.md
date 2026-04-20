@@ -6,6 +6,68 @@ Plataforma de dados moderna construída sobre Oracle WMS, cobrindo o ciclo compl
 
 ---
 
+## Diagrama de Arquitetura
+
+```mermaid
+flowchart TD
+    subgraph SRC["☁️ Fonte — Oracle WMS (VPN)"]
+        ORA1["ORAINT.DOCUMENTO\n(pedidos)"]
+        ORA2["WMAS.MOVIMENTOENTRADASAIDA\n(869k movimentos)"]
+        ORA3["WMAS.ESTOQUEPRODUTO\n(estoque)"]
+        ORA4["ORAINT.PRODUTO\n(produtos)"]
+    end
+
+    subgraph EXT["⚙️ Extração (Python + oracledb)"]
+        SCRIPT["oracle_to_postgres.py\nwatermark / snapshot"]
+    end
+
+    subgraph BRONZE["🥉 Bronze (PostgreSQL)"]
+        B1["orders_documento"]
+        B2["movements_entrada_saida"]
+        B3["inventory_produtoestoque"]
+        B4["products_snapshot"]
+    end
+
+    subgraph DBT["🔄 Transformação (dbt Core)"]
+        SILVER["Silver — staging views\nstg_orders · stg_movements · stg_inventory"]
+        GOLD["Gold — 8 marts analíticos\nfct_orders · fct_movements · dim_products\nmart_order_sla · mart_stockout_risk\nmart_operator_productivity · mart_picking_performance\nmart_geo_performance · mart_inventory_health"]
+    end
+
+    subgraph AI["🤖 Camada de IA (CrewAI + Claude)"]
+        AA["AnalystAgent\nSQL → gold"]
+        RA["ResearchAgent\nRAG → Qdrant"]
+        REP["ReporterAgent\nSíntese executiva"]
+        QDRANT[("Qdrant\n86 chunks\nADRs · runbooks")]
+    end
+
+    subgraph SERVE["🚀 Serving"]
+        API["FastAPI\nPOST /chat"]
+        UI["HTML Chat UI\nlocalhost:8000/chat"]
+        GRAFANA["Grafana\nWMS Operations\nOverview"]
+    end
+
+    subgraph OPS["🛠️ Operações"]
+        AIRFLOW["Airflow\n6 DAGs (stubs)"]
+        MINIO["MinIO\nobject storage"]
+    end
+
+    ORA1 & ORA2 & ORA3 & ORA4 --> SCRIPT
+    SCRIPT --> B1 & B2 & B3 & B4
+    B1 & B2 & B3 & B4 --> SILVER
+    SILVER --> GOLD
+    GOLD --> AA
+    QDRANT --> RA
+    AA --> REP
+    RA --> REP
+    REP --> API
+    API --> UI
+    GOLD --> GRAFANA
+    AIRFLOW -.->|"orquestra"| SCRIPT
+    AIRFLOW -.->|"orquestra"| DBT
+```
+
+---
+
 ## Quick Start (dados de demonstração)
 
 ```bash
