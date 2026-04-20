@@ -39,11 +39,15 @@ enriched as (
         end as stock_utilization_rate,
 
         case
-            when avg_consumption > 0 and min_stock_qty / avg_consumption <= 3  then 'critical'
-            when avg_consumption > 0 and min_stock_qty / avg_consumption <= 7  then 'high'
-            when avg_consumption > 0 and min_stock_qty / avg_consumption <= 14 then 'medium'
-            when avg_consumption > 0                                            then 'healthy'
-            else 'unknown'
+            -- avg_consumption=0: no demand recorded
+            --   stock=0 → nothing on hand, classify as critical
+            --   stock>0 → safe, no consumption means infinite coverage
+            when avg_consumption = 0 and min_stock_qty = 0 then 'critical'
+            when avg_consumption = 0                        then 'healthy'
+            when min_stock_qty / avg_consumption <= 3       then 'critical'
+            when min_stock_qty / avg_consumption <= 7       then 'high'
+            when min_stock_qty / avg_consumption <= 14      then 'medium'
+            else                                                 'healthy'
         end as stockout_risk,
 
         case when min_stock_qty <= safety_stock_qty then true else false end as below_safety_stock,

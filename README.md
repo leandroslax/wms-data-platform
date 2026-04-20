@@ -170,10 +170,11 @@ flowchart LR
     classDef silver fill:#26a69a,color:#fff,stroke:none
     classDef gold   fill:#1a7a9a,color:#fff,stroke:none
 
-    B1([bronze.inventory]):::bronze
-    B2([bronze.movements]):::bronze
-    B3([bronze.orders]):::bronze
-    B5([bronze.products]):::bronze
+    B1([bronze.inventory_produtoestoque]):::bronze
+    B2([bronze.movements_entrada_saida]):::bronze
+    B3([bronze.orders_documento]):::bronze
+    B4([bronze.orders_documentodetalhe]):::bronze
+    B5([bronze.products_snapshot]):::bronze
 
     S1([stg_inventory]):::silver
     S2([stg_movements]):::silver
@@ -182,7 +183,7 @@ flowchart LR
     F1([fct_inventory_snapshot]):::silver
     F2([fct_movements]):::silver
     F3([fct_orders]):::silver
-    D1([dim_products]):::silver
+    D1([dim_products\nproduct × warehouse]):::silver
 
     M1([mart_geo_inventory]):::gold
     M2([mart_inventory_health]):::gold
@@ -194,12 +195,15 @@ flowchart LR
     M8([mart_weather_impact]):::gold
 
     B1 --> S1 --> F1
+    B1 --> D1
     B2 --> S2 --> F2
     B3 --> S3 --> F3
+    B4 --> S3
     B5 --> D1
 
     F1 --> M1 & M2 & M3
-    F2 --> M4 & M5 & M6
+    F2 --> M4 & M5
+    F2 --> M6
     F3 --> M6 & M7 & M8
 ```
 

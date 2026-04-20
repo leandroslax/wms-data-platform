@@ -30,12 +30,14 @@ classified as (
     select
         *,
         case
-            when days_to_stockout is null   then 'unknown'
-            when days_to_stockout <= 0      then 'stockout'
-            when days_to_stockout <= 3      then 'critical'
-            when days_to_stockout <= 7      then 'high'
-            when days_to_stockout <= 14     then 'medium'
-            else                                 'low'
+            -- avg_consumption=0: stock exists → safe (no demand); stock=0 → no stock at all
+            when days_to_stockout is null and current_stock = 0 then 'stockout'
+            when days_to_stockout is null                        then 'low'
+            when days_to_stockout <= 0                           then 'stockout'
+            when days_to_stockout <= 3                           then 'critical'
+            when days_to_stockout <= 7                           then 'high'
+            when days_to_stockout <= 14                          then 'medium'
+            else                                                      'low'
         end as risk_level,
         {{ wms_today() }} as snapshot_date
     from base

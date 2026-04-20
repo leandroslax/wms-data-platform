@@ -40,7 +40,13 @@ aggregated as (
         sum(qty_picked)             as total_qty_picked,
         count(distinct product_id)  as distinct_skus_picked,
         min(movement_date)          as shift_start,
-        max(movement_date)          as shift_end
+        max(movement_date)          as shift_end,
+        -- active_hours computed here so with_rates can reference it without
+        -- duplicating the epoch arithmetic (previously repeated twice inline)
+        {{ wms_round(
+            "(" ~ wms_epoch("max(movement_date)") ~ " - " ~ wms_epoch("min(movement_date)") ~ ") / 3600.0",
+            2
+        ) }} as active_hours
     from picking_events
     group by 1, 2, 3, 4
 ),
@@ -48,16 +54,9 @@ aggregated as (
 with_rates as (
     select
         *,
-        {{ wms_round(
-            "(" ~ wms_epoch("shift_end") ~ " - " ~ wms_epoch("shift_start") ~ ") / 3600.0",
-            2
-        ) }} as active_hours,
         case
-            when {{ wms_epoch("shift_end") }} > {{ wms_epoch("shift_start") }}
-            then {{ wms_round(
-                "picks_count / ((" ~ wms_epoch("shift_end") ~ " - " ~ wms_epoch("shift_start") ~ ") / 3600.0)",
-                2
-            ) }}
+            when active_hours > 0
+            then {{ wms_round("picks_count / active_hours", 2) }}
             else null
         end as picks_per_hour
     from aggregated

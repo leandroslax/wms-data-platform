@@ -3,28 +3,20 @@
         materialized='incremental',
         incremental_strategy='merge',
         file_format='iceberg',
-        unique_key='product_id'
+        unique_key=['product_id', 'warehouse_id']
     )
 }}
 
-with ranked as (
-    select
-        product_id,
-        company_id,
-        warehouse_id,
-        product_class,
-        row_number() over (
-            partition by product_id
-            order by warehouse_id, company_id
-        ) as _rn
-    from {{ ref('stg_inventory') }}
-    where product_id is not null
-)
+-- Product dimension keyed by product + warehouse.
+-- One row per (product_id, warehouse_id) combination so that
+-- downstream joins can resolve class and company per storage location.
+-- The previous ROW_NUMBER dedup (unique_key='product_id') collapsed
+-- all warehouses to a single row and silently dropped warehouse data.
 
-select
+select distinct
     product_id,
-    company_id,
     warehouse_id,
+    company_id,
     product_class
-from ranked
-where _rn = 1
+from {{ ref('stg_inventory') }}
+where product_id is not null
