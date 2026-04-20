@@ -164,11 +164,16 @@ python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhos
 
 ### dbt Lineage
 
+![dbt lineage](docs/images/dbt_lineage.png)
+
+<details>
+<summary>Diagrama texto (Mermaid)</summary>
+
 ```mermaid
 flowchart LR
-    classDef bronze fill:#4caf50,color:#fff,stroke:none
-    classDef silver fill:#26a69a,color:#fff,stroke:none
-    classDef gold   fill:#1a7a9a,color:#fff,stroke:none
+    classDef bronze fill:#2d6a2d,color:#fff,stroke:none
+    classDef silver fill:#1a5f5a,color:#fff,stroke:none
+    classDef gold   fill:#1a5a7a,color:#fff,stroke:none
 
     B1([bronze.inventory_produtoestoque]):::bronze
     B2([bronze.movements_entrada_saida]):::bronze
@@ -183,7 +188,7 @@ flowchart LR
     F1([fct_inventory_snapshot]):::silver
     F2([fct_movements]):::silver
     F3([fct_orders]):::silver
-    D1([dim_products\nproduct × warehouse]):::silver
+    D1([dim_products · sku x wh]):::silver
 
     M1([mart_geo_inventory]):::gold
     M2([mart_inventory_health]):::gold
@@ -195,17 +200,18 @@ flowchart LR
     M8([mart_weather_impact]):::gold
 
     B1 --> S1 --> F1
-    B1 --> D1
+    B1 --> S1 --> D1
+    B5 --> D1
     B2 --> S2 --> F2
     B3 --> S3 --> F3
     B4 --> S3
-    B5 --> D1
 
     F1 --> M1 & M2 & M3
-    F2 --> M4 & M5
-    F2 --> M6
+    F2 --> M4 & M5 & M6
     F3 --> M6 & M7 & M8
 ```
+
+</details>
 
 ---
 
