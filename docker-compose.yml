@@ -16,15 +16,24 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    _PIP_ADDITIONAL_REQUIREMENTS: "oracledb dbt-postgres==1.9.1 fastembed qdrant-client"
     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     DBT_BRONZE_SCHEMA: bronze
-    POSTGRES_HOST: postgres
+    POSTGRES_HOST: wms-postgres
     POSTGRES_PORT: "5432"
     POSTGRES_DB: wms
     POSTGRES_USER: wmsadmin
     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wmsadmin2026}
+    ORACLE_HOST: ${ORACLE_HOST:-172.31.200.25}
+    ORACLE_PORT: ${ORACLE_PORT:-1521}
+    ORACLE_SERVICE_NAME: ${ORACLE_SERVICE_NAME:-WMS}
+    ORACLE_USER: ${ORACLE_USER:-de}
+    ORACLE_PASSWORD: ${ORACLE_PASSWORD:-}
+    QDRANT_URL: http://qdrant:6333
   volumes:
     - ./pipelines/dags:/opt/airflow/dags
+    - ./pipelines:/opt/airflow/pipelines
+    - ./transform/dbt_wms:/opt/airflow/dbt_wms
     - airflow_logs:/opt/airflow/logs
     - airflow_plugins:/opt/airflow/plugins
   depends_on:
