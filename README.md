@@ -109,6 +109,61 @@ python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhos
 
 ## Arquitetura
 
+### dbt Lineage Graph
+
+```mermaid
+flowchart LR
+    classDef bronze fill:#4caf50,color:#fff,stroke:none
+    classDef silver fill:#26a69a,color:#fff,stroke:none
+    classDef gold   fill:#1a7a9a,color:#fff,stroke:none
+
+    B1([bronze.inventory_produtoestoque]):::bronze
+    B2([bronze.movements_entrada_saida]):::bronze
+    B3([bronze.orders_documento]):::bronze
+    B4([bronze.orders_documentodetalhe]):::bronze
+    B5([bronze.products_snapshot]):::bronze
+
+    S1([stg_inventory]):::silver
+    S2([stg_movements]):::silver
+    S3([stg_orders]):::silver
+
+    F1([fct_inventory_snapshot]):::silver
+    F2([fct_movements]):::silver
+    F3([fct_orders]):::silver
+    D1([dim_products]):::silver
+
+    M1([mart_geo_inventory]):::gold
+    M2([mart_inventory_health]):::gold
+    M3([mart_stockout_risk]):::gold
+    M4([mart_operator_productivity]):::gold
+    M5([mart_picking_performance]):::gold
+    M6([mart_geo_performance]):::gold
+    M7([mart_order_sla]):::gold
+    M8([mart_weather_impact]):::gold
+
+    B1 --> S1
+    B2 --> S2
+    B3 & B4 --> S3
+    B5 --> D1
+
+    S1 --> F1
+    S1 --> D1
+    S2 --> F2
+    S3 --> F3
+
+    F1 --> M1
+    F1 --> M2
+    F1 --> M3
+    F2 --> M4
+    F2 --> M5
+    F2 --> M6
+    F3 --> M6
+    F3 --> M7
+    F3 --> M8
+```
+
+### Stack Completa
+
 ```
 Oracle WMS (172.31.200.25)
   └─[watermark]─► oracle_to_postgres.py ──► PostgreSQL — schema bronze
