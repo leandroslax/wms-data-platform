@@ -260,6 +260,14 @@ Dashboard de monitoramento de infraestrutura com **13 painéis**:
 
 Dashboard com **14 charts** construídos via manipulação direta do SQLite de metadados:
 
+![Superset — WMS Operations](docs/images/superset_wms_operations.png)
+
+O dashboard do Superset complementa o Grafana com uma visão mais analítica da operação, destacando:
+- KPIs executivos de pedidos, movimentações, SLA e backlog
+- Séries temporais de volume operacional ao longo do ano
+- Tabelas analíticas para pedidos, operadores, risco de stockout e picking
+- Gráficos de distribuição para SLA e risco de estoque
+
 | Chart | Tipo | Dataset |
 |---|---|---|
 | Total de Pedidos | big_number_total | fct_orders |
