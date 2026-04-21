@@ -26,12 +26,11 @@ models:
           - unique
 
   - name: dim_products
-    description: "Minimal product dimension derived from transactional activity."
+    description: "Product dimension keyed by product + warehouse (one row per sku/warehouse combination)."
     columns:
       - name: product_id
         tests:
           - not_null
-          - unique
 
   - name: mart_order_sla
     description: "SLA performance per order — cycle time and compliance classification."
@@ -59,7 +58,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['critical', 'high', 'medium', 'healthy', 'unknown']
+                values: ['critical', 'high', 'medium', 'healthy']
 
   - name: mart_stockout_risk
     description: "Stockout risk projection per SKU/warehouse — days to stockout."
@@ -73,7 +72,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['stockout', 'critical', 'high', 'medium', 'low', 'unknown']
+                values: ['stockout', 'critical', 'high', 'medium', 'low']
 
   - name: mart_operator_productivity
     description: "Daily operator productivity — movement volume, complexity index and ranking."
