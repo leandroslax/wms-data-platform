@@ -102,8 +102,9 @@ models:
 
   - name: mart_geo_performance
     description: >
-      SLA performance aggregated by company/depositor and month.
-      Geographic enrichment (city/state) pending ViaCEP pipeline.
+      SLA performance aggregated by company/depositor and month with geographic enrichment.
+      City, state, region and coordinates sourced from bronze.geo_reference via ViaCEP pipeline.
+      Used for choropleth maps in Grafana (SLA by state/region).
     columns:
       - name: company_id
         tests:
@@ -111,20 +112,34 @@ models:
       - name: issued_month
         tests:
           - not_null
+      - name: uf
+        description: "State code from geo_reference (null if entity not yet enriched)"
+      - name: regiao
+        description: "Brazilian macro-region (Sudeste, Sul, Nordeste, Norte, Centro-Oeste)"
+      - name: latitude
+        description: "State centroid latitude for map rendering"
+      - name: longitude
+        description: "State centroid longitude for map rendering"
 
   - name: mart_geo_inventory
     description: >
-      Inventory health aggregated by warehouse and product class.
-      Geographic enrichment (city/state) pending ViaCEP pipeline.
+      Inventory health aggregated by warehouse and product class with geographic enrichment.
+      Warehouse location sourced from bronze.geo_reference (city, state, region, lat/long).
+      Used for Grafana choropleth: inventory coverage by state.
     columns:
       - name: warehouse_id
         tests:
           - not_null
+      - name: uf
+        description: "State code from geo_reference (null if warehouse not yet enriched)"
+      - name: regiao
+        description: "Brazilian macro-region"
 
   - name: mart_weather_impact
     description: >
-      Delay metrics by company/depositor and day.
-      Weather correlation (weather_condition) pending INMET enrichment pipeline.
+      Delay metrics correlated with daily weather by company/depositor and day.
+      Weather data sourced from bronze.weather_daily (Open-Meteo Archive API via dag_enrich_geo).
+      Enables Grafana panels correlating delay_rate_pct with precipitation and temperature.
     columns:
       - name: company_id
         tests:
@@ -132,3 +147,11 @@ models:
       - name: issued_date
         tests:
           - not_null
+      - name: weather_condition
+        description: "WMO weather description in Portuguese (null if no geo_reference for company)"
+      - name: precipitation_mm
+        description: "Total precipitation on the order date (mm)"
+      - name: avg_temperature_c
+        description: "Mean temperature on the order date (°C)"
+      - name: wind_speed_kmh
+        description: "Max wind speed on the order date (km/h)"

@@ -15,3 +15,38 @@ sources:
         description: "Movimentações de estoque — Iceberg MERGE por sequenciamovimento."
       - name: products_snapshot
         description: "Snapshot de produtos — Iceberg MERGE por codigoproduto + codigoestabelecimento."
+      - name: geo_reference
+        description: >
+          Mapeamento de entidades (warehouses e empresas) para localização geográfica.
+          Populado pelo pipeline ViaCEP (dag_enrich_geo) com cidade, estado, região
+          e coordenadas do centróide estadual (IBGE).
+        columns:
+          - name: entity_type
+            description: "Tipo da entidade: 'warehouse' | 'company'"
+          - name: entity_id
+            description: "ID da entidade (codigoestabelecimento ou codigodepositante)"
+          - name: uf
+            description: "Sigla do estado (SP, RJ, ...)"
+          - name: estado
+            description: "Nome completo do estado"
+          - name: regiao
+            description: "Macro-região do Brasil (Norte, Nordeste, Sudeste, Sul, Centro-Oeste)"
+          - name: latitude
+            description: "Latitude do centróide estadual (IBGE)"
+          - name: longitude
+            description: "Longitude do centróide estadual (IBGE)"
+      - name: weather_daily
+        description: >
+          Dados históricos de clima diário por UF, obtidos via Open-Meteo Archive API
+          (gratuito, sem chave de API). Populado pelo pipeline dag_enrich_geo.
+        columns:
+          - name: location_uf
+            description: "Sigla do estado de referência"
+          - name: weather_date
+            description: "Data de referência do registro de clima"
+          - name: weather_condition
+            description: "Descrição do clima em português (WMO weather code traduzido)"
+          - name: precipitation_mm
+            description: "Precipitação total no dia (mm)"
+          - name: avg_temperature_c
+            description: "Temperatura média do dia (°C)"

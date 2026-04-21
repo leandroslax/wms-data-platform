@@ -7,10 +7,9 @@
     )
 }}
 
--- SLA performance aggregated by company and depositor.
--- Geographic enrichment (CEP → city/state via ViaCEP) is not yet implemented.
--- Once the enrichment pipeline is active, add city/state/region columns via JOIN
--- on the enriched bronze tables.
+-- SLA performance aggregated by company and depositor with geographic enrichment.
+-- Geography (city/state/region/lat-long) sourced from bronze.geo_reference,
+-- populated by the ViaCEP enrichment pipeline (dag_enrich_geo).
 
 with sla_base as (
     select
@@ -46,10 +45,57 @@ with sla_base as (
     from {{ ref('fct_orders') }}
     where issued_at is not null
     group by 1, 2, 3
+),
+
+-- Geographic enrichment: company entity_id maps to depositor/company codes
+company_geo as (
+    select
+        entity_id,
+        localidade  as cidade,
+        uf,
+        estado,
+        regiao,
+        latitude,
+        longitude
+    from {{ source('bronze', 'geo_reference') }}
+    where entity_type = 'company'
+),
+
+-- Fallback: warehouse geo when company geo is unavailable
+depositor_geo as (
+    select
+        entity_id,
+        localidade  as cidade,
+        uf,
+        estado,
+        regiao,
+        latitude,
+        longitude
+    from {{ source('bronze', 'geo_reference') }}
+    where entity_type = 'warehouse'
 )
 
-select * from sla_base
+select
+    s.company_id,
+    s.depositor_id,
+    s.issued_month,
+    s.order_count,
+    s.delivered_count,
+    s.total_value,
+    s.avg_cycle_time_hours,
+    s.sla_compliance_pct,
+    s.late_delivery_pct,
+    -- Geographic dimensions (company geo takes precedence over warehouse geo)
+    coalesce(cg.cidade,   dg.cidade)   as cidade,
+    coalesce(cg.uf,       dg.uf)       as uf,
+    coalesce(cg.estado,   dg.estado)   as estado,
+    coalesce(cg.regiao,   dg.regiao)   as regiao,
+    coalesce(cg.latitude, dg.latitude) as latitude,
+    coalesce(cg.longitude,dg.longitude)as longitude
+from sla_base s
+left join company_geo  cg on cg.entity_id = s.company_id
+left join depositor_geo dg on dg.entity_id = s.depositor_id
 
 {% if is_incremental() %}
-where issued_month > (select max(issued_month) from {{ this }})
+where s.issued_month > (select max(issued_month) from {{ this }})
 {% endif %}

@@ -78,4 +78,39 @@ CREATE TABLE IF NOT EXISTS bronze.products_snapshot (
     _cdc_loaded_at          TIMESTAMPTZ DEFAULT now()
 );
 
+-- ─────────────────────────────────────────────────────────────
+-- Enriquecimento geográfico e climático
+-- Populado pelo pipeline pipelines/enrichment/enrich_geo.py
+-- ─────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS bronze.geo_reference (
+    entity_type     TEXT        NOT NULL,   -- 'warehouse' | 'company'
+    entity_id       TEXT        NOT NULL,   -- codigoestabelecimento / codigodepositante
+    cep             TEXT,                   -- CEP formatado (00000-000)
+    logradouro      TEXT,                   -- logradouro via ViaCEP
+    bairro          TEXT,                   -- bairro via ViaCEP
+    localidade      TEXT,                   -- cidade via ViaCEP
+    uf              TEXT,                   -- sigla do estado (SP, RJ, ...)
+    estado          TEXT,                   -- nome completo do estado (IBGE)
+    regiao          TEXT,                   -- macro-região (Norte, Sudeste, ...)
+    ibge_code       TEXT,                   -- código IBGE do município (7 dígitos)
+    latitude        NUMERIC(10,6),          -- centróide do estado (IBGE)
+    longitude       NUMERIC(11,6),          -- centróide do estado (IBGE)
+    _enriched_at    TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (entity_type, entity_id)
+);
+
+CREATE TABLE IF NOT EXISTS bronze.weather_daily (
+    location_uf         TEXT        NOT NULL,   -- sigla UF (SP, RJ, ...)
+    weather_date        DATE        NOT NULL,   -- data de referência
+    avg_temperature_c   NUMERIC(5,2),           -- temperatura média (°C)
+    min_temperature_c   NUMERIC(5,2),           -- temperatura mínima (°C)
+    max_temperature_c   NUMERIC(5,2),           -- temperatura máxima (°C)
+    precipitation_mm    NUMERIC(8,2),           -- precipitação total (mm)
+    weather_condition   TEXT,                   -- descrição em português (WMO)
+    wind_speed_kmh      NUMERIC(6,2),           -- velocidade máx. do vento (km/h)
+    _enriched_at        TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (location_uf, weather_date)
+);
+
 -- Banco 'airflow' criado pelo script 02_create_airflow_db.sh
