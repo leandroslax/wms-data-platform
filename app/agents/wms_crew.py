@@ -23,14 +23,10 @@ from app.agents.reporter_agent import build_reporter_agent
 
 logger = logging.getLogger(__name__)
 
-# CrewAI memory usa Chroma com embeddings OpenAI — só ativa se a chave estiver presente.
-# Sem OPENAI_API_KEY o crew roda normalmente, apenas sem memória persistente entre sessões.
-_MEMORY_ENABLED = bool(os.getenv("OPENAI_API_KEY"))
-if not _MEMORY_ENABLED:
-    logger.warning(
-        "OPENAI_API_KEY não definida — CrewAI memory desativada (sem Chroma/embeddings). "
-        "O crew funciona normalmente; adicione OPENAI_API_KEY para habilitar memória entre sessões."
-    )
+# CrewAI memory usa Chroma com embeddings OpenAI (requer OPENAI_API_KEY com créditos ativos).
+# Desativado por padrão — habilitar via env var CREWAI_MEMORY=true quando a chave tiver créditos.
+_MEMORY_ENABLED = os.getenv("CREWAI_MEMORY", "false").lower() == "true"
+logger.info("CrewAI memory: %s", "ATIVADA" if _MEMORY_ENABLED else "desativada (CREWAI_MEMORY != true)")
 
 
 def build_wms_crew(
