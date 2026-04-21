@@ -11,6 +11,8 @@ Usage:
 """
 from __future__ import annotations
 
+import logging
+import os
 from typing import Callable, Optional
 
 from crewai import Crew, Task, Process
@@ -18,6 +20,17 @@ from crewai import Crew, Task, Process
 from app.agents.analyst_agent import build_analyst_agent
 from app.agents.research_agent import build_research_agent
 from app.agents.reporter_agent import build_reporter_agent
+
+logger = logging.getLogger(__name__)
+
+# CrewAI memory usa Chroma com embeddings OpenAI — só ativa se a chave estiver presente.
+# Sem OPENAI_API_KEY o crew roda normalmente, apenas sem memória persistente entre sessões.
+_MEMORY_ENABLED = bool(os.getenv("OPENAI_API_KEY"))
+if not _MEMORY_ENABLED:
+    logger.warning(
+        "OPENAI_API_KEY não definida — CrewAI memory desativada (sem Chroma/embeddings). "
+        "O crew funciona normalmente; adicione OPENAI_API_KEY para habilitar memória entre sessões."
+    )
 
 
 def build_wms_crew(
@@ -87,7 +100,7 @@ def build_wms_crew(
         agents=[analyst, researcher, reporter],
         tasks=[analysis_task, research_task, report_task],
         process=Process.sequential,
-        memory=True,
+        memory=_MEMORY_ENABLED,   # True somente se OPENAI_API_KEY disponível
         verbose=True,
     )
     if step_callback is not None:

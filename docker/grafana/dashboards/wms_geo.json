@@ -1,0 +1,372 @@
+{
+  "title": "WMS — Mapa Geográfico",
+  "uid": "wms-geo",
+  "schemaVersion": 37,
+  "version": 1,
+  "refresh": "10m",
+  "time": {"from": "now-30d", "to": "now"},
+  "tags": ["wms", "geo", "weather", "map"],
+  "panels": [
+
+    {
+      "id": 1,
+      "gridPos": {"x": 0, "y": 0, "w": 16, "h": 14},
+      "type": "geomap",
+      "title": "SLA por Empresa — Mapa de Calor",
+      "datasource": "WMS PostgreSQL",
+      "targets": [
+        {
+          "rawSql": "SELECT g.localidade AS name, g.uf, g.estado, g.regiao, g.latitude, g.longitude, ROUND(AVG(COALESCE(m.sla_compliance_pct, 0)), 1) AS sla_pct, SUM(COALESCE(m.order_count, 0)) AS orders, ROUND(AVG(COALESCE(m.late_delivery_pct, 0)), 1) AS late_pct FROM bronze.geo_reference g LEFT JOIN gold.mart_geo_performance m ON m.company_id = g.entity_id AND g.entity_type = 'company' GROUP BY g.localidade, g.uf, g.estado, g.regiao, g.latitude, g.longitude ORDER BY g.uf",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "view": {
+          "allLayers": true,
+          "id": "coords",
+          "lat": -14.235,
+          "lon": -51.925,
+          "zoom": 4
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showScale": true,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "SLA por Empresa",
+            "config": {
+              "size": {
+                "field": "orders",
+                "fixed": 10,
+                "max": 35,
+                "min": 8
+              },
+              "color": {
+                "field": "sla_pct",
+                "fixed": "green"
+              },
+              "fillOpacity": 0.8,
+              "shape": "circle",
+              "showLegend": true
+            },
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            },
+            "tooltip": true
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "basemap": {
+          "type": "default",
+          "name": "Layer 0"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red",    "value": 0},
+              {"color": "orange", "value": 50},
+              {"color": "yellow", "value": 70},
+              {"color": "green",  "value": 85}
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "sla_pct"},
+            "properties": [
+              {"id": "displayName",           "value": "SLA %"},
+              {"id": "unit",                  "value": "percent"},
+              {"id": "custom.width",          "value": 80}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "orders"},
+            "properties": [{"id": "displayName", "value": "Pedidos"}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "late_pct"},
+            "properties": [{"id": "displayName", "value": "Atraso %"}, {"id": "unit", "value": "percent"}]
+          }
+        ]
+      }
+    },
+
+    {
+      "id": 2,
+      "gridPos": {"x": 16, "y": 0, "w": 8, "h": 14},
+      "type": "table",
+      "title": "Ranking SLA por Estado",
+      "datasource": "WMS PostgreSQL",
+      "targets": [
+        {
+          "rawSql": "SELECT g.uf AS \"UF\", g.estado AS \"Estado\", g.regiao AS \"Região\", ROUND(AVG(COALESCE(m.sla_compliance_pct, 0)), 1) AS \"SLA %\", SUM(COALESCE(m.order_count, 0)) AS \"Pedidos\", ROUND(AVG(COALESCE(m.late_delivery_pct, 0)), 1) AS \"Atraso %\" FROM bronze.geo_reference g LEFT JOIN gold.mart_geo_performance m ON m.company_id = g.entity_id AND g.entity_type = 'company' GROUP BY g.uf, g.estado, g.regiao ORDER BY \"SLA %\" DESC",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "footer": {"show": false},
+        "sortBy": [{"desc": true, "displayName": "SLA %"}]
+      },
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "thresholds"}, "custom": {"align": "auto", "displayMode": "auto"}},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "SLA %"},
+            "properties": [
+              {"id": "unit", "value": "percent"},
+              {"id": "custom.displayMode", "value": "color-background"},
+              {"id": "thresholds", "value": {"mode": "absolute", "steps": [
+                {"color": "red", "value": 0},
+                {"color": "orange", "value": 50},
+                {"color": "yellow", "value": 70},
+                {"color": "green", "value": 85}
+              ]}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Atraso %"},
+            "properties": [
+              {"id": "unit", "value": "percent"},
+              {"id": "custom.displayMode", "value": "color-text"},
+              {"id": "thresholds", "value": {"mode": "absolute", "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 10},
+                {"color": "red", "value": 25}
+              ]}}
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      "id": 3,
+      "gridPos": {"x": 0, "y": 14, "w": 16, "h": 12},
+      "type": "geomap",
+      "title": "Armazéns — Cobertura de Estoque por Localidade",
+      "datasource": "WMS PostgreSQL",
+      "targets": [
+        {
+          "rawSql": "SELECT g.localidade AS name, g.uf, g.estado, g.latitude, g.longitude, ROUND(AVG(COALESCE(i.stock_health_pct, 0)), 1) AS stock_health_pct, SUM(COALESCE(i.stockout_count, 0)) AS stockouts, SUM(COALESCE(i.product_count, 0)) AS produtos FROM bronze.geo_reference g LEFT JOIN gold.mart_geo_inventory i ON i.warehouse_id = g.entity_id AND g.entity_type = 'warehouse' GROUP BY g.localidade, g.uf, g.estado, g.latitude, g.longitude ORDER BY g.uf",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "view": {
+          "allLayers": true,
+          "id": "coords",
+          "lat": -14.235,
+          "lon": -51.925,
+          "zoom": 4
+        },
+        "controls": {"mouseWheelZoom": true, "showZoom": true, "showScale": true, "showAttribution": true},
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Armazéns",
+            "config": {
+              "size": {"field": "produtos", "fixed": 12, "max": 30, "min": 8},
+              "color": {"field": "stock_health_pct", "fixed": "blue"},
+              "fillOpacity": 0.75,
+              "shape": "square",
+              "showLegend": true
+            },
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            },
+            "tooltip": true
+          }
+        ],
+        "tooltip": {"mode": "details"},
+        "basemap": {"type": "default", "name": "Layer 0"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red",    "value": 0},
+              {"color": "orange", "value": 40},
+              {"color": "yellow", "value": 60},
+              {"color": "green",  "value": 80}
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "stock_health_pct"},
+            "properties": [{"id": "displayName", "value": "Saúde Estoque %"}, {"id": "unit", "value": "percent"}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "stockouts"},
+            "properties": [{"id": "displayName", "value": "SKUs em Ruptura"}]
+          }
+        ]
+      }
+    },
+
+    {
+      "id": 4,
+      "gridPos": {"x": 16, "y": 14, "w": 8, "h": 12},
+      "type": "table",
+      "title": "Armazéns — Saúde do Estoque",
+      "datasource": "WMS PostgreSQL",
+      "targets": [
+        {
+          "rawSql": "SELECT g.localidade AS \"Cidade\", g.uf AS \"UF\", COALESCE(SUM(i.product_count), 0) AS \"SKUs\", ROUND(AVG(COALESCE(i.stock_health_pct, 0)), 1) AS \"Saúde %\", COALESCE(SUM(i.stockout_count), 0) AS \"Rupturas\" FROM bronze.geo_reference g LEFT JOIN gold.mart_geo_inventory i ON i.warehouse_id = g.entity_id AND g.entity_type = 'warehouse' GROUP BY g.localidade, g.uf ORDER BY \"Saúde %\" DESC",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "options": {"footer": {"show": false}},
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto", "displayMode": "auto"}},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Saúde %"},
+            "properties": [
+              {"id": "unit", "value": "percent"},
+              {"id": "custom.displayMode", "value": "color-background"},
+              {"id": "thresholds", "value": {"mode": "absolute", "steps": [
+                {"color": "red", "value": 0},
+                {"color": "orange", "value": 40},
+                {"color": "yellow", "value": 60},
+                {"color": "green", "value": 80}
+              ]}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Rupturas"},
+            "properties": [
+              {"id": "custom.displayMode", "value": "color-text"},
+              {"id": "thresholds", "value": {"mode": "absolute", "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 3},
+                {"color": "red", "value": 8}
+              ]}}
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      "id": 5,
+      "gridPos": {"x": 0, "y": 26, "w": 24, "h": 10},
+      "type": "timeseries",
+      "title": "Chuva × Taxa de Atraso por Estado (últimos 30 dias)",
+      "datasource": "WMS PostgreSQL",
+      "targets": [
+        {
+          "rawSql": "SELECT w.weather_date AS time, w.location_uf AS metric, ROUND(AVG(w.precipitation_mm), 1) AS value FROM bronze.weather_daily w WHERE w.weather_date >= CURRENT_DATE - INTERVAL '30 days' GROUP BY w.weather_date, w.location_uf ORDER BY 1",
+          "format": "time_series",
+          "refId": "Chuva"
+        },
+        {
+          "rawSql": "SELECT m.issued_date AS time, COALESCE(g.uf, 'N/A') AS metric, ROUND(AVG(m.delay_rate_pct), 1) AS value FROM gold.mart_weather_impact m LEFT JOIN bronze.geo_reference g ON g.entity_id = m.company_id AND g.entity_type = 'company' WHERE m.issued_date >= CURRENT_DATE - INTERVAL '30 days' GROUP BY m.issued_date, g.uf ORDER BY 1",
+          "format": "time_series",
+          "refId": "Atraso"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {"lineWidth": 2, "fillOpacity": 10, "spanNulls": true},
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byFrameRefID", "options": "Chuva"},
+            "properties": [
+              {"id": "unit", "value": "mm"},
+              {"id": "custom.lineStyle", "value": {"dash": [10, 10], "fill": "dash"}},
+              {"id": "custom.fillOpacity", "value": 5}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      }
+    },
+
+    {
+      "id": 6,
+      "gridPos": {"x": 0, "y": 36, "w": 12, "h": 9},
+      "type": "barchart",
+      "title": "SLA por Macro-Região",
+      "datasource": "WMS PostgreSQL",
+      "targets": [
+        {
+          "rawSql": "SELECT g.regiao AS \"Região\", ROUND(AVG(COALESCE(m.sla_compliance_pct, 0)), 1) AS \"SLA %\", SUM(COALESCE(m.order_count, 0)) AS \"Pedidos\", ROUND(AVG(COALESCE(m.late_delivery_pct, 0)), 1) AS \"Atraso %\" FROM bronze.geo_reference g LEFT JOIN gold.mart_geo_performance m ON m.company_id = g.entity_id AND g.entity_type = 'company' GROUP BY g.regiao ORDER BY \"SLA %\" DESC",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "percent", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 70}, {"color": "green", "value": 85}]}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Pedidos"}, "properties": [{"id": "unit", "value": "short"}, {"id": "custom.hideFrom", "value": {"viz": true, "legend": false, "tooltip": false}}]}
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "Região",
+        "barWidth": 0.7,
+        "groupWidth": 0.7,
+        "stacking": "none",
+        "fillOpacity": 80,
+        "tooltip": {"mode": "single"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      }
+    },
+
+    {
+      "id": 7,
+      "gridPos": {"x": 12, "y": 36, "w": 12, "h": 9},
+      "type": "timeseries",
+      "title": "Temperatura Média × Estado (últimos 30 dias)",
+      "datasource": "WMS PostgreSQL",
+      "targets": [
+        {
+          "rawSql": "SELECT weather_date AS time, location_uf AS metric, ROUND(avg_temperature_c, 1) AS value FROM bronze.weather_daily WHERE weather_date >= CURRENT_DATE - INTERVAL '30 days' AND location_uf IN ('SP','RJ','MG','PR','BA') ORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": {"lineWidth": 2, "fillOpacity": 8, "spanNulls": true}
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      }
+    }
+
+  ]
+}
