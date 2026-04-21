@@ -77,12 +77,12 @@ def qdrant_semantic_search(question: str) -> str:
             return "Base de conhecimento vazia. Execute o DAG dag_embed_rag para indexar os runbooks e ADRs."
 
         embedding = _embed(question)
-        results = client.search(
+        results = client.query_points(
             collection_name=COLLECTION_NAME,
-            query_vector=embedding,
+            query=embedding,
             limit=5,
             with_payload=True,
-        )
+        ).points
 
         if not results:
             return "Nenhum documento relevante encontrado na base de conhecimento operacional."

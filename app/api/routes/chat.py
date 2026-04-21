@@ -5,13 +5,34 @@ Delegates to the 3-agent CrewAI crew:
   ResearchAgent → semantic search on runbooks/ADRs via Qdrant
   ReporterAgent → synthesis into structured Portuguese response
 
-The endpoint is intentionally synchronous for the MVP.
-Long-running queries will be moved to a background task + WebSocket
-once the PostgreSQL and Qdrant connections are fully provisioned.
+Endpoints
+---------
+POST /chat
+    Synchronous — waits for the full answer (kept for API clients / tests).
+
+POST /chat/stream
+    Server-Sent Events — yields progress events as each agent completes,
+    then the final answer. Use this endpoint from the browser UI to avoid
+    request timeouts on slow crews (15+ LLM calls).
+
+SSE event format (JSON lines, each prefixed with "data: ")::
+
+    data: {"type": "progress", "agent": "AnalystAgent",   "message": "..."}
+    data: {"type": "progress", "agent": "ResearchAgent",  "message": "..."}
+    data: {"type": "progress", "agent": "ReporterAgent",  "message": "..."}
+    data: {"type": "done",     "answer": "<markdown>"}
+    data: {"type": "error",    "message": "<error text>"}
 """
+from __future__ import annotations
+
+import asyncio
+import json
 import logging
+import threading
+from typing import AsyncIterator
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
 
 from app.api.schemas.chat import ChatRequest, ChatResponse
 
@@ -19,6 +40,18 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# ── Agent display names for progress events ──────────────────────────────────
+
+_AGENT_LABEL = {
+    "analyst":    ("AnalystAgent",   "🔍 Consultando dados do PostgreSQL…"),
+    "research":   ("ResearchAgent",  "📚 Buscando documentos operacionais…"),
+    "reporter":   ("ReporterAgent",  "✍️  Sintetizando resposta final…"),
+}
+
+_STEP_COUNTER: dict[int, int] = {}  # thread-id → step count
+
+
+# ── Synchronous endpoint (kept for tests / external API clients) ──────────────
 
 @router.post(
     "",
@@ -27,14 +60,13 @@ router = APIRouter()
     description=(
         "Accepts a natural language question and routes it through the "
         "3-agent WMS crew (Analyst → Research → Reporter). "
-        "Returns a structured answer in Portuguese."
+        "Returns a structured answer in Portuguese. "
+        "For browser use prefer POST /chat/stream (SSE)."
     ),
 )
 def chat(request: ChatRequest) -> ChatResponse:
-    """Run the WMS agent crew for a natural language question."""
+    """Run the WMS agent crew synchronously and return the full answer."""
     try:
-        # Lazy import — avoids loading CrewAI/LangChain at cold start
-        # if ANTHROPIC_API_KEY is not set (e.g. health-check only deployments).
         from app.agents.wms_crew import run_wms_crew  # noqa: PLC0415
 
         answer = run_wms_crew(request.question)
@@ -53,3 +85,95 @@ def chat(request: ChatRequest) -> ChatResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Agent crew error: {exc}",
         ) from exc
+
+
+# ── SSE streaming endpoint ────────────────────────────────────────────────────
+
+@router.post(
+    "/stream",
+    summary="Ask a WMS question — streaming SSE response",
+    description=(
+        "Same as POST /chat but returns a Server-Sent Events stream. "
+        "Emits progress events as each agent completes its task, "
+        "followed by a final 'done' event containing the full answer."
+    ),
+    response_class=StreamingResponse,
+)
+async def chat_stream(request: ChatRequest) -> StreamingResponse:
+    """Run the WMS agent crew and stream progress via SSE."""
+
+    loop = asyncio.get_running_loop()
+    q: asyncio.Queue[dict] = asyncio.Queue()
+
+    # ── step_callback runs inside the crew thread ─────────────────────────────
+    step_count: list[int] = [0]
+
+    def _step_callback(step_output) -> None:  # noqa: ANN001
+        """Called by CrewAI after every agent tool-use step."""
+        step_count[0] += 1
+        n = step_count[0]
+
+        # Map step number to agent label (roughly: steps 1-5 analyst,
+        # 6-10 researcher, 11-15 reporter — adjusted by crew max_iter=5)
+        if n <= 5:
+            agent, base_msg = _AGENT_LABEL["analyst"]
+        elif n <= 10:
+            agent, base_msg = _AGENT_LABEL["research"]
+        else:
+            agent, base_msg = _AGENT_LABEL["reporter"]
+
+        event = {"type": "progress", "agent": agent, "step": n, "message": base_msg}
+        asyncio.run_coroutine_threadsafe(q.put(event), loop)
+
+    # ── crew thread ───────────────────────────────────────────────────────────
+    def _run_crew() -> None:
+        try:
+            from app.agents.wms_crew import build_wms_crew  # noqa: PLC0415
+
+            crew = build_wms_crew(request.question, step_callback=_step_callback)
+            result = crew.kickoff()
+            asyncio.run_coroutine_threadsafe(
+                q.put({"type": "done", "answer": result.raw}),
+                loop,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Streaming crew failed for question: %s", request.question)
+            asyncio.run_coroutine_threadsafe(
+                q.put({"type": "error", "message": str(exc)}),
+                loop,
+            )
+
+    thread = threading.Thread(target=_run_crew, daemon=True)
+    thread.start()
+
+    # ── SSE generator (runs in async context) ─────────────────────────────────
+    async def _event_generator() -> AsyncIterator[str]:
+        # Initial "thinking" event so the client knows the crew started
+        yield _sse({"type": "progress", "agent": "Crew", "step": 0,
+                    "message": "🚀 Iniciando agentes WMS…"})
+
+        while True:
+            try:
+                # Timeout prevents hanging if the crew thread dies unexpectedly
+                event = await asyncio.wait_for(q.get(), timeout=300.0)
+            except asyncio.TimeoutError:
+                yield _sse({"type": "error", "message": "Timeout: agentes demoraram mais de 5 minutos."})
+                break
+            yield _sse(event)
+            if event["type"] in ("done", "error"):
+                break
+
+    return StreamingResponse(
+        _event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",        # disable nginx buffering
+            "Connection": "keep-alive",
+        },
+    )
+
+
+def _sse(data: dict) -> str:
+    """Format a dict as an SSE data line."""
+    return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"

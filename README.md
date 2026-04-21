@@ -314,22 +314,81 @@ O script `docker/postgres/seed.py` gera dados realistas sem necessidade de Oracl
 
 ## Agentes IA
 
-Stack: CrewAI + Claude Haiku (Anthropic API) + PostgreSQL gold + Qdrant RAG
+Stack: **CrewAI** + **Claude (Anthropic API)** + PostgreSQL gold + Qdrant RAG
 
-| Agente | Arquivo | Função |
+### Arquitetura dos Agentes
+
+```
+Pergunta do usuário
+       │
+       ▼
+┌─────────────────────┐
+│   WMS Data Analyst  │  ← Claude via Anthropic API
+│   (AnalystAgent)    │    Executa SQL no schema gold
+└────────┬────────────┘
+         │ dados quantitativos
+         ▼
+┌──────────────────────────┐
+│ WMS Operations Researcher│  ← Claude via Anthropic API
+│   (ResearchAgent)        │    Busca semântica no Qdrant
+└────────┬─────────────────┘    (runbooks, ADRs, incidentes)
+         │ contexto operacional
+         ▼
+┌──────────────────────────┐
+│  WMS Operations Reporter │  ← Claude via Anthropic API
+│   (ReporterAgent)        │    Síntese executiva em Markdown
+└────────┬─────────────────┘
+         │ resposta final
+         ▼
+     FastAPI /chat/stream (SSE)
+```
+
+### Agentes
+
+| Agente | Nome no CrewAI | Arquivo | Função |
+|---|---|---|---|
+| `AnalystAgent` | WMS Data Analyst | `app/agents/analyst_agent.py` | Identifica marts relevantes, gera e executa SQL no schema gold, interpreta resultados |
+| `ResearchAgent` | WMS Operations Researcher | `app/agents/research_agent.py` | Busca semântica no Qdrant por runbooks, ADRs e incidentes passados relacionados à pergunta |
+| `ReporterAgent` | WMS Operations Reporter | `app/agents/reporter_agent.py` | Sintetiza dados quantitativos + contexto operacional em resposta estruturada (Resumo Executivo · Dados Chave · Contexto · Recomendações) |
+| `WMSCrew` | crew | `app/agents/wms_crew.py` | Orquestra os três agentes em sequência via CrewAI |
+
+### LLM e Embeddings
+
+| Componente | Modelo | Provedor |
 |---|---|---|
-| `AnalystAgent` | `app/agents/analyst_agent.py` | Gera e executa SQL sobre marts gold |
-| `ResearchAgent` | `app/agents/research_agent.py` | RAG sobre 86 chunks de ADRs/runbooks via Qdrant |
-| `ReporterAgent` | `app/agents/reporter_agent.py` | Síntese executiva em Markdown estruturado |
-| `WMSCrew` | `app/agents/wms_crew.py` | Orquestra os três agentes em sequência |
+| LLM dos agentes | Claude (Anthropic API) | Anthropic — configurar `ANTHROPIC_API_KEY` |
+| Embeddings Qdrant | `BAAI/bge-base-en-v1.5` (768 dims) | FastEmbed — local, sem custo |
+| Memória CrewAI (Chroma) | `text-embedding-3-small` | OpenAI — requer `OPENAI_API_KEY` |
 
-**Qdrant:** 86 vetores indexados (18 docs: 3 ADRs, 1 runbook, arquitetura, contratos).  
-Modelo: `BAAI/bge-base-en-v1.5` (768 dims, FastEmbed). Coleção: `wms_operational_docs`.
+> **Nota:** A memória entre sessões (Chroma) usa embeddings da OpenAI. Para desabilitar a memória e rodar sem `OPENAI_API_KEY`, configure `memory=False` no `WMSCrew`.
 
-**Perguntas de exemplo:**
+### Qdrant — Knowledge Base
+
+Coleção `wms_operational_docs` — modelo `BAAI/bge-base-en-v1.5` (768 dims, FastEmbed).
+
+Indexar documentos:
+```bash
+python3 pipelines/rag/embed_docs.py \
+  --docs-dir docs \
+  --qdrant-url http://localhost:6333
+```
+
+Conteúdo indexado: ADRs de arquitetura, runbooks de recuperação de pipeline, documentação técnica da plataforma.
+
+### Ferramentas dos Agentes
+
+| Tool | Agente | Descrição |
+|---|---|---|
+| `wms_sql_analyst` | AnalystAgent | Executa queries SQL no PostgreSQL schema gold |
+| `wms_operational_knowledge_search` | ResearchAgent | Busca semântica vetorial no Qdrant |
+| `search_memory` | Todos | Recupera contexto da memória compartilhada (Chroma) |
+
+### Perguntas de exemplo
+
+- "Qual a saúde geral do estoque por armazém?"
 - "Quais empresas têm mais pedidos atrasados este mês?"
-- "Por que o projeto usa Iceberg em vez de Delta Lake?"
 - "Qual o desempenho dos operadores esta semana?"
+- "Qual o tamanho da base gold?"
 - "Como recuperar o pipeline em caso de falha do dbt?"
 
 ---
@@ -440,7 +499,7 @@ Makefile
 | Banco de dados | PostgreSQL 16 (bronze / silver / gold) |
 | Object storage | MinIO (local) |
 | Transformação | dbt Core 1.10 + dbt-postgres |
-| Agentes | CrewAI + Claude Haiku (Anthropic API) |
+| Agentes | CrewAI + Claude (Anthropic API) |
 | Vector store | Qdrant v1.9 |
 | API | FastAPI + Uvicorn |
 | Orquestração | Apache Airflow 2 (LocalExecutor) |

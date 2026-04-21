@@ -9,6 +9,10 @@ Usage:
     answer = run_wms_crew("Quais operadores tiveram queda de produtividade esta semana?")
     print(answer)
 """
+from __future__ import annotations
+
+from typing import Callable, Optional
+
 from crewai import Crew, Task, Process
 
 from app.agents.analyst_agent import build_analyst_agent
@@ -16,8 +20,17 @@ from app.agents.research_agent import build_research_agent
 from app.agents.reporter_agent import build_reporter_agent
 
 
-def build_wms_crew(question: str) -> Crew:
-    """Build a Crew wired to answer a specific WMS question."""
+def build_wms_crew(
+    question: str,
+    step_callback: Optional[Callable] = None,
+) -> Crew:
+    """Build a Crew wired to answer a specific WMS question.
+
+    Args:
+        question: Natural language question about WMS operations.
+        step_callback: Optional callable invoked after each agent step.
+                       Receives a string description of the completed step.
+    """
     analyst = build_analyst_agent()
     researcher = build_research_agent()
     reporter = build_reporter_agent()
@@ -70,13 +83,17 @@ def build_wms_crew(question: str) -> Crew:
         context=[analysis_task, research_task],
     )
 
-    return Crew(
+    crew_kwargs: dict = dict(
         agents=[analyst, researcher, reporter],
         tasks=[analysis_task, research_task, report_task],
         process=Process.sequential,
         memory=True,
         verbose=True,
     )
+    if step_callback is not None:
+        crew_kwargs["step_callback"] = step_callback
+
+    return Crew(**crew_kwargs)
 
 
 def run_wms_crew(question: str) -> str:

@@ -134,8 +134,8 @@
     .suggestion:hover { border-color: #6366f1; background: #6366f110; color: #e2e8f0; }
     .suggestion strong { display: block; color: #e2e8f0; margin-bottom: 4px; font-size: 13px; }
 
-    /* ── Typing indicator ── */
-    .typing { display: flex; gap: 4px; align-items: center; padding: 8px 0; }
+    /* ── Typing / progress indicator ── */
+    .typing { display: flex; gap: 4px; align-items: center; padding: 4px 0 8px; }
     .typing span {
       width: 7px; height: 7px; border-radius: 50%; background: #6366f1;
       animation: bounce 1.2s infinite;
@@ -145,6 +145,28 @@
     @keyframes bounce {
       0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
       40% { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* Progress log inside the thinking bubble */
+    .progress-log {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .progress-item {
+      font-size: 12px;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.3s;
+    }
+    .progress-item.active { color: #a5b4fc; }
+    .progress-item.done   { color: #34d399; }
+    .progress-item .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; flex-shrink: 0;
     }
 
     /* ── Input area ── */
@@ -224,9 +246,10 @@
 
 <script>
   const messagesEl = document.getElementById('messages');
-  const welcomeEl  = document.getElementById('welcome');
   const questionEl = document.getElementById('question');
   const sendBtn    = document.getElementById('send-btn');
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
 
   function autoResize(el) {
     el.style.height = 'auto';
@@ -245,10 +268,14 @@
     document.getElementById('input-form').dispatchEvent(new Event('submit'));
   }
 
-  function addMessage(role, content, isMarkdown = false) {
-    if (welcomeEl) welcomeEl.remove();
+  function removeWelcome() {
+    const w = document.getElementById('welcome');
+    if (w) w.remove();
+  }
 
-    const msg = document.createElement('div');
+  function addMessage(role, content, isMarkdown = false) {
+    removeWelcome();
+    const msg    = document.createElement('div');
     msg.className = `msg ${role}`;
 
     const avatar = document.createElement('div');
@@ -257,7 +284,6 @@
 
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
-
     if (isMarkdown) {
       bubble.innerHTML = marked.parse(content);
     } else {
@@ -271,23 +297,57 @@
     return bubble;
   }
 
-  function addTyping() {
+  // ── Progress bubble (shown while streaming) ───────────────────────────────
+
+  const STAGES = [
+    { key: 'start',    label: '🚀 Iniciando agentes…' },
+    { key: 'analyst',  label: '🔍 AnalystAgent — consultando PostgreSQL' },
+    { key: 'research', label: '📚 ResearchAgent — buscando documentos' },
+    { key: 'reporter', label: '✍️  ReporterAgent — sintetizando resposta' },
+  ];
+
+  function addProgressBubble() {
+    removeWelcome();
     const msg = document.createElement('div');
     msg.className = 'msg bot';
-    msg.id = 'typing-msg';
-    msg.innerHTML = `
-      <div class="avatar">🤖</div>
-      <div class="bubble">
-        <div class="typing">
-          <span></span><span></span><span></span>
-        </div>
-        <div style="font-size:12px;color:#475569;margin-top:4px">
-          Analisando dados e consultando agentes…
-        </div>
-      </div>`;
+    msg.id = 'progress-msg';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = '🤖';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    // Bouncing dots
+    bubble.innerHTML = `
+      <div class="typing"><span></span><span></span><span></span></div>
+      <div class="progress-log" id="progress-log"></div>`;
+
+    msg.appendChild(avatar);
+    msg.appendChild(bubble);
     messagesEl.appendChild(msg);
     messagesEl.scrollTop = messagesEl.scrollHeight;
+    return document.getElementById('progress-log');
   }
+
+  function updateProgress(logEl, message, agentKey) {
+    // Mark previous items as done
+    logEl.querySelectorAll('.progress-item.active').forEach(el => {
+      el.classList.remove('active');
+      el.classList.add('done');
+      el.querySelector('.dot').textContent = '';
+      el.insertAdjacentHTML('afterbegin', '<span style="font-size:11px">✓ </span>');
+    });
+
+    const item = document.createElement('div');
+    item.className = 'progress-item active';
+    item.innerHTML = `<div class="dot"></div><span>${message}</span>`;
+    logEl.appendChild(item);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // ── SSE streaming send ────────────────────────────────────────────────────
 
   async function sendMessage(e) {
     e.preventDefault();
@@ -299,26 +359,60 @@
     sendBtn.disabled = true;
 
     addMessage('user', question);
-    addTyping();
+    const progressLog = addProgressBubble();
 
     try {
-      const res = await fetch('/chat', {
+      const res = await fetch('/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question }),
       });
 
-      document.getElementById('typing-msg')?.remove();
-
       if (!res.ok) {
-        const err = await res.json();
-        addMessage('bot', `❌ Erro: ${err.detail || 'Falha na requisição.'}`);
-      } else {
-        const data = await res.json();
-        addMessage('bot', data.answer, true);
+        // Non-streaming error (e.g. 422 validation, 503 agent unavailable)
+        document.getElementById('progress-msg')?.remove();
+        let detail = `HTTP ${res.status}`;
+        try { detail = (await res.json()).detail || detail; } catch (_) {}
+        addMessage('bot', `❌ Erro: ${detail}`);
+        return;
       }
+
+      // Read SSE stream line by line
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let   buffer  = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete last line
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          let event;
+          try { event = JSON.parse(line.slice(6)); } catch (_) { continue; }
+
+          if (event.type === 'progress') {
+            updateProgress(progressLog, event.message, event.agent);
+
+          } else if (event.type === 'done') {
+            document.getElementById('progress-msg')?.remove();
+            addMessage('bot', event.answer, true);
+            break;
+
+          } else if (event.type === 'error') {
+            document.getElementById('progress-msg')?.remove();
+            addMessage('bot', `❌ Erro dos agentes: ${event.message}`);
+            break;
+          }
+        }
+      }
+
     } catch (err) {
-      document.getElementById('typing-msg')?.remove();
+      document.getElementById('progress-msg')?.remove();
       addMessage('bot', `❌ Erro de conexão: ${err.message}`);
     } finally {
       sendBtn.disabled = false;
