@@ -151,7 +151,7 @@ for args in [
     # 6. Picking — colunas verificadas: picks_count, picks_per_hour, total_qty_picked, distinct_skus_picked
     ("Performance de Picking por Turno", "table", "mart_picking_performance", {
         "metrics": [
-            {"aggregate":"SUM","column":{"column_name":"picks_count"},"expressionType":"SIMPLE","label":"Total Picks"},
+            {"aggregate":"SUM","column":{"column_name":"picks_count"},"expressionType":"SIMPLE","label":"Total de Picks"},
             {"aggregate":"AVG","column":{"column_name":"picks_per_hour"},"expressionType":"SIMPLE","label":"Picks/h"},
             {"aggregate":"SUM","column":{"column_name":"total_qty_picked"},"expressionType":"SIMPLE","label":"Qtd Total"},
             {"aggregate":"AVG","column":{"column_name":"distinct_skus_picked"},"expressionType":"SIMPLE","label":"SKUs/Turno"},

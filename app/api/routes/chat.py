@@ -1,13 +1,13 @@
 """Chat route — natural language interface for WMS operational questions.
 
 Delegates to the 3-agent CrewAI crew:
-  AnalystAgent  → SQL query on Redshift gold marts
+  AnalystAgent  → SQL query on PostgreSQL gold marts
   ResearchAgent → semantic search on runbooks/ADRs via Qdrant
   ReporterAgent → synthesis into structured Portuguese response
 
 The endpoint is intentionally synchronous for the MVP.
 Long-running queries will be moved to a background task + WebSocket
-once the Redshift and Qdrant connections are fully provisioned.
+once the PostgreSQL and Qdrant connections are fully provisioned.
 """
 import logging
 

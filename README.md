@@ -31,7 +31,7 @@ flowchart TD
 
     subgraph DBT["🔄 Transformação (dbt Core)"]
         SILVER["Silver — staging views\nstg_orders · stg_movements · stg_inventory"]
-        GOLD["Gold — 8 marts analíticos\nfct_orders · fct_movements · dim_products\nmart_order_sla · mart_stockout_risk\nmart_operator_productivity · mart_picking_performance\nmart_geo_performance · mart_inventory_health"]
+  GOLD["Gold — 8 marts analíticos\nfct_orders · fct_movements · dim_products\nmart_order_sla · mart_stockout_risk\nmart_operator_productivity · mart_picking_performance\nmart_geo_performance · mart_inventory_health"]
     end
 
     subgraph DASH["📊 Dashboards"]
@@ -183,7 +183,7 @@ flowchart LR
 
     S1([stg_inventory]):::silver
     S2([stg_movements]):::silver
-    S3([stg_orders]):::silver
+    S3O([stg_orders]):::silver
 
     F1([fct_inventory_snapshot]):::silver
     F2([fct_movements]):::silver
@@ -203,8 +203,8 @@ flowchart LR
     B1 --> S1 --> D1
     B5 --> D1
     B2 --> S2 --> F2
-    B3 --> S3 --> F3
-    B4 --> S3
+    B3 --> S3O --> F3
+    B4 --> S3O
 
     F1 --> M1 & M2 & M3
     F2 --> M4 & M5 & M6
@@ -336,13 +336,12 @@ Modelo: `BAAI/bge-base-en-v1.5` (768 dims, FastEmbed). Coleção: `wms_operation
 
 ## Orquestração Airflow
 
-6 DAGs com ordem de execução:
+5 DAGs com ordem de execução:
 
 ```
 dag_extract_wms      → 01h  — extração Oracle → bronze
 dag_transform_dbt    → 03h  — dbt run (silver + gold)
 dag_quality_check    → 04h  — testes dbt
-dag_load_warehouse   → 04h30 — (reservado para Redshift)
 dag_embed_rag        → semanal — re-indexa docs no Qdrant
 dag_freshness_monitor → horário — alerta de frescor dos dados
 ```
@@ -374,7 +373,7 @@ transform/dbt_wms/
   models/staging/         # 3 views (stg_orders, stg_inventory, stg_movements)
   models/marts/           # 8 marts analíticos gold
   macros/compat.sql       # wms_epoch, wms_hour, wms_today (cross-db)
-  profiles.yml            # target local (PostgreSQL) + dev/prod (Glue)
+  profiles.yml            # target local (PostgreSQL)
 
 app/
   agents/                 # AnalystAgent, ResearchAgent, ReporterAgent, WMSCrew
@@ -387,11 +386,11 @@ pipelines/
     oracle_to_postgres.py # extrai Oracle → bronze (watermark + snapshot)
   rag/
     embed_docs.py         # indexa docs/ no Qdrant (BAAI/bge-base-en-v1.5)
-  dags/                   # 6 DAGs Airflow
+  dags/                   # 5 DAGs Airflow
   gold/                   # scripts auxiliares de geração gold
 
 docs/
-  adr/                    # ADR-001 (Iceberg), ADR-002 (CDC), ADR-003 (Glue)
+  adr/                    # ADRs de arquitetura e decisões técnicas
   runbooks/               # pipeline-recovery.md
   architecture.md
 
@@ -428,7 +427,7 @@ Makefile
 ⬜ Frontend React — ChatInterface + dashboards interativos
 ⬜ CI/CD — GitHub Actions (lint, test, dbt compile, security scan)
 ⬜ Observabilidade — LangFuse traces, DeepEval evals
-⬜ Deploy AWS — Terraform, Lambda, Redshift Serverless, S3 Iceberg
+⬜ Melhorar a experiência local no Mac com mais automações Docker
 ```
 
 ---
@@ -448,7 +447,6 @@ Makefile
 | Dashboards | Grafana + Apache Superset |
 | Observabilidade | LangFuse, DeepEval |
 | Infra local | Docker Compose |
-| Infra cloud (planejado) | Terraform · AWS Lambda · Redshift Serverless · S3 Iceberg |
 
 ---
 

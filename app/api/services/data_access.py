@@ -5,8 +5,8 @@ class DataAccessService:
     Temporary analytical access layer.
 
     This service currently returns mocked responses for the MVP while the
-    Redshift serving layer is not connected yet. The public methods are already
-    shaped to match the future serving contract.
+    local analytical serving layer is not connected yet. The public methods are
+    already shaped to match the future PostgreSQL-backed contract.
     """
 
     def fetch_orders_summary(self) -> dict[str, Any]:

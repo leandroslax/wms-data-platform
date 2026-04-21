@@ -55,8 +55,8 @@ def qdrant_semantic_search(question: str) -> str:
     Use when the question involves operational context, procedures, known
     issues or architectural decisions — not exact numbers:
     - Runbooks: procedimentos de resposta a incidentes do pipeline
-    - ADRs: decisões arquiteturais e justificativas (Iceberg vs Delta,
-      DMS vs timestamp, Athena vs Redshift, Kinesis vs Kafka)
+    - ADRs: decisões arquiteturais e justificativas (PostgreSQL local,
+      dbt incremental, Airflow, Qdrant, Docker)
     - Incidentes passados: root causes registrados e remediações aplicadas
     - Configurações do Oracle WMS e conectividade FortiGate/VPN
     - Boas práticas e documentação técnica da plataforma

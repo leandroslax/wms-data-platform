@@ -16,10 +16,9 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 
-from wms_datasets import DBT_GOLD_REFRESH_DATASET, QUALITY_GATE_DATASET
+from wms_datasets import DBT_GOLD_REFRESH_DATASET
 
 DBT_PROJECT_DIR  = "/opt/airflow/dbt_wms"
 DBT_PROFILES_DIR = "/opt/airflow/dbt_wms"
@@ -159,10 +158,4 @@ with DAG(
         python_callable=_check_nulls,
     )
 
-    quality_ready = EmptyOperator(
-        task_id="quality_ready",
-        outlets=[QUALITY_GATE_DATASET],
-    )
-
     dbt_test >> [check_counts, check_nulls]
-    [check_counts, check_nulls] >> quality_ready

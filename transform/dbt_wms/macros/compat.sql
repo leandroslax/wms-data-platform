@@ -1,6 +1,6 @@
 {#
   compat.sql — Cross-database compatibility macros
-  Glue/Spark SQL  ←→  PostgreSQL  ←→  DuckDB
+  PostgreSQL  ←→  DuckDB
 
   Usage in models:
     {{ wms_epoch('delivered_at') }}   instead of  unix_timestamp(delivered_at)
