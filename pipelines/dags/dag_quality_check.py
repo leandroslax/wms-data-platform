@@ -133,6 +133,7 @@ with DAG(
             f"--project-dir {DBT_PROJECT_DIR} "
             f"--profiles-dir {DBT_PROFILES_DIR} "
             f"--target local "
+            f"--no-partial-parse "
             f"--store-failures "
             f"--no-use-colors"
             # sem || echo — falha real se o teste quebrar

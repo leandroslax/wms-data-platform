@@ -66,11 +66,27 @@ _STEP_COUNTER: dict[int, int] = {}  # thread-id → step count
 )
 def chat(request: ChatRequest) -> ChatResponse:
     """Run the WMS agent crew synchronously and return the full answer."""
+    import concurrent.futures  # noqa: PLC0415
+
+    TIMEOUT_SECONDS = 180  # 3 min max — prevents indefinite hangs
+
     try:
         from app.agents.wms_crew import run_wms_crew  # noqa: PLC0415
 
-        answer = run_wms_crew(request.question)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(run_wms_crew, request.question)
+            try:
+                answer = future.result(timeout=TIMEOUT_SECONDS)
+            except concurrent.futures.TimeoutError:
+                raise HTTPException(
+                    status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                    detail="Os agentes demoraram mais de 3 minutos. Tente uma pergunta mais simples.",
+                )
+
         return ChatResponse(answer=answer, question=request.question)
+
+    except HTTPException:
+        raise
 
     except ImportError as exc:
         logger.error("Agent dependencies not installed: %s", exc)
@@ -152,16 +168,24 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
         yield _sse({"type": "progress", "agent": "Crew", "step": 0,
                     "message": "🚀 Iniciando agentes WMS…"})
 
-        while True:
+        deadline = 300.0  # 5 min total timeout
+        elapsed  = 0.0
+        ping_interval = 10.0  # keep-alive ping every 10s (prevents Docker/proxy drops)
+
+        while elapsed < deadline:
             try:
-                # Timeout prevents hanging if the crew thread dies unexpectedly
-                event = await asyncio.wait_for(q.get(), timeout=300.0)
+                event = await asyncio.wait_for(q.get(), timeout=ping_interval)
             except asyncio.TimeoutError:
-                yield _sse({"type": "error", "message": "Timeout: agentes demoraram mais de 5 minutos."})
-                break
+                elapsed += ping_interval
+                # SSE comment line — invisible to the client but keeps TCP alive
+                yield ": ping\n\n"
+                continue
+
             yield _sse(event)
             if event["type"] in ("done", "error"):
                 break
+        else:
+            yield _sse({"type": "error", "message": "Timeout: agentes demoraram mais de 5 minutos."})
 
     return StreamingResponse(
         _event_generator(),

@@ -18,3 +18,6 @@ select distinct
     product_class
 from {{ ref('stg_inventory') }}
 where product_id is not null
+  and warehouse_id is not null
+  and company_id is not null
+  and product_class is not null

@@ -84,6 +84,7 @@ with DAG(
             f"--project-dir {DBT_PROJECT_DIR} "
             f"--profiles-dir {DBT_PROFILES_DIR} "
             f"--target local "
+            f"--no-partial-parse "
             f"--no-use-colors"
         ),
         env={
@@ -104,6 +105,7 @@ with DAG(
             f"--project-dir {DBT_PROJECT_DIR} "
             f"--profiles-dir {DBT_PROFILES_DIR} "
             f"--target local "
+            f"--no-partial-parse "
             f"--no-use-colors "
             f"|| echo 'WARN: some dbt tests failed — check logs'"
         ),

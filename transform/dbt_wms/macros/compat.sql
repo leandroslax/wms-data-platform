@@ -45,3 +45,18 @@
     round(({{ col }})::numeric, {{ precision }})
   {%- endif -%}
 {% endmacro %}
+
+{# ── wms_source_exists: check whether an optional source table exists ────────── #}
+{% macro wms_source_exists(source_name, table_name) %}
+  {% if execute %}
+    {% set src = source(source_name, table_name) %}
+    {% set relation = adapter.get_relation(
+      database=src.database,
+      schema=src.schema,
+      identifier=src.identifier
+    ) %}
+    {{ return(relation is not none) }}
+  {% else %}
+    {{ return(false) }}
+  {% endif %}
+{% endmacro %}

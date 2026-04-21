@@ -7,6 +7,8 @@
     )
 }}
 
+{% set has_geo_reference = wms_source_exists('bronze', 'geo_reference') %}
+
 -- Inventory health aggregated by warehouse and product class with geographic enrichment.
 -- Warehouse location (city/state/region/lat-long) sourced from bronze.geo_reference,
 -- populated by the ViaCEP enrichment pipeline (dag_enrich_geo).
@@ -36,6 +38,7 @@ with inventory_agg as (
 ),
 
 warehouse_geo as (
+    {% if has_geo_reference %}
     select
         entity_id       as warehouse_id,
         localidade      as cidade,
@@ -46,6 +49,17 @@ warehouse_geo as (
         longitude
     from {{ source('bronze', 'geo_reference') }}
     where entity_type = 'warehouse'
+    {% else %}
+    select
+        cast(null as text)    as warehouse_id,
+        cast(null as text)    as cidade,
+        cast(null as text)    as uf,
+        cast(null as text)    as estado,
+        cast(null as text)    as regiao,
+        cast(null as numeric) as latitude,
+        cast(null as numeric) as longitude
+    where 1 = 0
+    {% endif %}
 )
 
 select

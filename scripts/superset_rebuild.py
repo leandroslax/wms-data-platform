@@ -73,8 +73,31 @@ for args in [
     # 2. Linha do tempo + Pie
     ("Movimentacoes por Dia", "echarts_timeseries_line", "fct_movements", {
         "metrics": [{"aggregate":"COUNT","column":{"column_name":"movement_id"},"expressionType":"SIMPLE","label":"Movimentacoes"}],
-        "x_axis": "movement_date", "time_grain_sqla": "P1D",
+        "x_axis": "movement_date", "granularity_sqla": "movement_date", "time_grain_sqla": "P1D",
         "row_limit": 500, "y_axis_format": "SMART_NUMBER", "rich_tooltip": True,
+        "time_range": "Last 30 days",
+        "adhoc_filters": [{
+            "clause": "WHERE",
+            "expressionType": "SQL",
+            "sqlExpression": "movement_date >= CURRENT_DATE - INTERVAL '30 days' AND movement_date < CURRENT_DATE",
+            "subject": None,
+            "operator": None,
+            "comparator": None
+        }],
+    }),
+    ("Movimentacoes Hoje por Hora", "echarts_timeseries_line", "fct_movements", {
+        "metrics": [{"aggregate":"COUNT","column":{"column_name":"movement_id"},"expressionType":"SIMPLE","label":"Movimentacoes"}],
+        "x_axis": "movement_date", "granularity_sqla": "movement_date", "time_grain_sqla": "PT1H",
+        "row_limit": 500, "y_axis_format": "SMART_NUMBER", "rich_tooltip": True,
+        "time_range": "No filter",
+        "adhoc_filters": [{
+            "clause": "WHERE",
+            "expressionType": "SQL",
+            "sqlExpression": "movement_date >= CURRENT_DATE AND movement_date < CURRENT_DATE + INTERVAL '1 day'",
+            "subject": None,
+            "operator": None,
+            "comparator": None
+        }],
     }),
     ("SLA por Status", "pie", "mart_order_sla", {
         "metric": {"aggregate":"COUNT","column":{"column_name":"order_id"},"expressionType":"SIMPLE","label":"Pedidos"},
@@ -170,11 +193,11 @@ print(f"\n{len(chart_ids)} charts criados: {chart_ids}")
 def build_positions(ids):
     layout = []
     if len(ids) >= 4:  layout.append(("kpi",  ids[0:4]))
-    if len(ids) >= 6:  layout.append(("wide", [ids[4], ids[5]]))
-    if len(ids) >= 8:  layout.append(("half", [ids[6], ids[7]]))
-    if len(ids) >= 10: layout.append(("half", [ids[8], ids[9]]))
-    if len(ids) >= 12: layout.append(("half", [ids[10], ids[11]]))
-    if len(ids) >= 14: layout.append(("half", [ids[12], ids[13]]))
+    if len(ids) >= 7:  layout.append(("thirds", [ids[4], ids[5], ids[6]]))
+    if len(ids) >= 9:  layout.append(("half", [ids[7], ids[8]]))
+    if len(ids) >= 11: layout.append(("half", [ids[9], ids[10]]))
+    if len(ids) >= 13: layout.append(("half", [ids[11], ids[12]]))
+    if len(ids) >= 15: layout.append(("half", [ids[13], ids[14]]))
 
     pos = {
         "DASHBOARD_VERSION_KEY": "v2",
@@ -193,6 +216,11 @@ def build_positions(ids):
             for ci, cid in enumerate(row_ids):
                 ek = f"CHART-{cid}"; w = 16 if ci==0 else 8
                 pos[ek] = {"id":ek,"type":"CHART","children":[],"meta":{"chartId":cid,"height":50,"width":w,"sliceName":f"C{cid}"}}
+                elems.append(ek)
+        elif kind == "thirds":
+            for cid in row_ids:
+                ek = f"CHART-{cid}"
+                pos[ek] = {"id":ek,"type":"CHART","children":[],"meta":{"chartId":cid,"height":50,"width":8,"sliceName":f"C{cid}"}}
                 elems.append(ek)
         else:
             w = 24 // len(row_ids)

@@ -26,12 +26,19 @@ def _get_client() -> QdrantClient:
     return QdrantClient(url=url, api_key=api_key, check_compatibility=False, timeout=10)
 
 
-def _embed(text: str) -> list[float]:
-    """Generate embedding with FastEmbed (BAAI/bge-base-en-v1.5, 768 dims)."""
-    from fastembed import TextEmbedding
+_embedding_model = None  # module-level cache — loaded once per process
 
-    model = TextEmbedding(EMBEDDING_MODEL)
-    return list(model.embed([text]))[0].tolist()
+def _embed(text: str) -> list[float]:
+    """Generate embedding with FastEmbed (BAAI/bge-base-en-v1.5, 768 dims).
+
+    Model is cached at module level so it is loaded/downloaded only once
+    per container lifetime, regardless of how many tool calls are made.
+    """
+    global _embedding_model
+    if _embedding_model is None:
+        from fastembed import TextEmbedding
+        _embedding_model = TextEmbedding(EMBEDDING_MODEL)
+    return list(_embedding_model.embed([text]))[0].tolist()
 
 
 def ensure_collection_exists(client: QdrantClient) -> None:

@@ -37,7 +37,7 @@ def build_reporter_agent() -> Agent:
             "Quando a audiência for técnica, inclua a query SQL utilizada."
         ),
         llm=llm,
-        max_iter=3,
+        max_iter=2,
         verbose=True,
     )
 

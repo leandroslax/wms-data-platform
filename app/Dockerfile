@@ -16,5 +16,6 @@ COPY app/ ./app/
 
 EXPOSE 8000
 
-# Hot-reload em dev (volume montado sobrescreve ./app em runtime)
-CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Sem --reload: evita downloads repetidos do fastembed a cada mudança de arquivo.
+# Para aplicar mudanças de código: docker compose restart api
+CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

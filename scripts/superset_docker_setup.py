@@ -60,8 +60,17 @@ with app.app_context():
         "Movimentações por Dia", "echarts_timeseries_line", "fct_movements",
         {"metrics": [{"aggregate": "COUNT", "column": {"column_name": "movement_id"},
                       "expressionType": "SIMPLE", "label": "Movimentações"}],
-         "x_axis": "movement_date", "time_grain_sqla": "P1D",
-         "row_limit": 500, "y_axis_format": "SMART_NUMBER"},
+         "x_axis": "movement_date", "granularity_sqla": "movement_date", "time_grain_sqla": "P1D",
+         "row_limit": 500, "y_axis_format": "SMART_NUMBER",
+         "time_range": "Last 30 days",
+         "adhoc_filters": [{
+             "clause": "WHERE",
+             "expressionType": "SQL",
+             "sqlExpression": "movement_date >= CURRENT_DATE - INTERVAL '30 days' AND movement_date < CURRENT_DATE",
+             "subject": None,
+             "operator": None,
+             "comparator": None
+         }]},
     )
     if s: slices.append(s)
 
@@ -118,19 +127,19 @@ with app.app_context():
         rows_def = []
         # row 0: chart 0 largura total
         rows_def.append([ids[0]])
-        # row 1: charts 1+2
+        # row 1: movements day + movements hour + sla
         if len(ids) > 2:
             rows_def.append([ids[1], ids[2]])
         elif len(ids) > 1:
             rows_def.append([ids[1]])
-        # row 2: charts 3+4
-        if len(ids) > 4:
-            rows_def.append([ids[3], ids[4]])
-        elif len(ids) > 3:
-            rows_def.append([ids[3]])
-        # row 3: chart 5
+        # row 2: charts 4+5
         if len(ids) > 5:
-            rows_def.append([ids[5]])
+            rows_def.append([ids[4], ids[5]])
+        elif len(ids) > 4:
+            rows_def.append([ids[4]])
+        # row 3: chart 6
+        if len(ids) > 6:
+            rows_def.append([ids[6]])
 
         pos = {
             "DASHBOARD_VERSION_KEY": "v2",

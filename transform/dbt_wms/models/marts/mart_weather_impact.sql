@@ -7,6 +7,9 @@
     )
 }}
 
+{% set has_geo_reference = wms_source_exists('bronze', 'geo_reference') %}
+{% set has_weather_daily = wms_source_exists('bronze', 'weather_daily') %}
+
 -- Delay metrics correlated with weather data by company, depositor and day.
 -- Weather sourced from bronze.weather_daily (Open-Meteo), populated by dag_enrich_geo.
 -- JOIN logic: order's company → geo_reference → UF → weather_daily (same date).
@@ -43,11 +46,40 @@ with order_delays as (
 
 -- Resolve company → UF via geo_reference
 company_uf as (
+    {% if has_geo_reference %}
     select
         entity_id as company_id,
         uf
     from {{ source('bronze', 'geo_reference') }}
     where entity_type = 'company'
+    {% else %}
+    select
+        cast(null as text) as company_id,
+        cast(null as text) as uf
+    where 1 = 0
+    {% endif %}
+),
+
+weather_daily as (
+    {% if has_weather_daily %}
+    select
+        location_uf,
+        weather_date,
+        weather_condition,
+        avg_temperature_c,
+        precipitation_mm,
+        wind_speed_kmh
+    from {{ source('bronze', 'weather_daily') }}
+    {% else %}
+    select
+        cast(null as text)    as location_uf,
+        cast(null as date)    as weather_date,
+        cast(null as text)    as weather_condition,
+        cast(null as numeric) as avg_temperature_c,
+        cast(null as numeric) as precipitation_mm,
+        cast(null as numeric) as wind_speed_kmh
+    where 1 = 0
+    {% endif %}
 ),
 
 -- Bring in weather for the order date × company UF
@@ -68,7 +100,7 @@ order_weather as (
     from order_delays od
     left join company_uf cu
         on cu.company_id = od.company_id
-    left join {{ source('bronze', 'weather_daily') }} wd
+    left join weather_daily wd
         on  wd.location_uf  = cu.uf
         and wd.weather_date = od.issued_date
 )

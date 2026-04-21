@@ -4,107 +4,531 @@
   "schemaVersion": 37,
   "version": 2,
   "refresh": "5m",
-  "time": {"from": "2025-04-20T00:00:00Z", "to": "now"},
-  "tags": ["wms", "operations"],
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "tags": [
+    "wms",
+    "operations"
+  ],
   "panels": [
-
-    { "id": 1, "gridPos": {"x":0,"y":0,"w":4,"h":4},
-      "type": "stat", "title": "Total de Pedidos",
+    {
+      "id": 1,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "type": "stat",
+      "title": "Total de Pedidos",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT COUNT(*) FROM gold.fct_orders", "format": "table", "refId": "A"}],
-      "options": {"colorMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"blue","value":0}]}}} },
-
-    { "id": 2, "gridPos": {"x":4,"y":0,"w":4,"h":4},
-      "type": "stat", "title": "Pedidos em Aberto",
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) FROM gold.fct_orders",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              {
+                "color": "blue",
+                "value": 0
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "type": "stat",
+      "title": "Pedidos em Aberto",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT COUNT(*) FROM gold.mart_order_sla WHERE sla_status = 'pending'", "format": "table", "refId": "A"}],
-      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"color":{"fixedColor":"blue","mode":"fixed"}, "thresholds": {"steps": [{"color":"blue","value":0}]}}} },
-
-    { "id": 3, "gridPos": {"x":8,"y":0,"w":4,"h":4},
-      "type": "stat", "title": "Pedidos Atrasados",
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) FROM gold.mart_order_sla WHERE sla_status = 'pending'",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "fixed"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "blue",
+                "value": 0
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "type": "stat",
+      "title": "Pedidos Atrasados",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT COUNT(*) FROM gold.mart_order_sla WHERE sla_status = 'late'", "format": "table", "refId": "A"}],
-      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"green","value":0},{"color":"yellow","value":10},{"color":"red","value":50}]}}} },
-
-    { "id": 4, "gridPos": {"x":12,"y":0,"w":4,"h":4},
-      "type": "stat", "title": "Total de Movimentos",
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) FROM gold.mart_order_sla WHERE sla_status = 'late'",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "type": "stat",
+      "title": "Total de Movimentos",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT COUNT(*) FROM gold.fct_movements", "format": "table", "refId": "A"}],
-      "options": {"colorMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"unit":"short","thresholds": {"steps": [{"color":"blue","value":0}]}}} },
-
-    { "id": 5, "gridPos": {"x":16,"y":0,"w":4,"h":4},
-      "type": "stat", "title": "Produtos em Risco Critico",
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) FROM gold.fct_movements",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              {
+                "color": "blue",
+                "value": 0
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "type": "stat",
+      "title": "Produtos em Risco Critico",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT COUNT(*) FROM gold.mart_stockout_risk WHERE risk_level IN ('critical','stockout')", "format": "table", "refId": "A"}],
-      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color":"green","value":0},{"color":"yellow","value":3},{"color":"red","value":8}]}}} },
-
-    { "id": 6, "gridPos": {"x":20,"y":0,"w":4,"h":4},
-      "type": "stat", "title": "SLA % no Prazo",
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) FROM gold.mart_stockout_risk WHERE risk_level IN ('critical','stockout')",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 8
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "type": "stat",
+      "title": "SLA % no Prazo",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT ROUND(100.0 * SUM(CASE WHEN sla_status IN ('on_time_express','on_time') THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0), 1) FROM gold.mart_order_sla WHERE sla_status != 'pending'", "format": "table", "refId": "A"}],
-      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"unit":"percent","thresholds": {"steps": [{"color":"red","value":0},{"color":"yellow","value":70},{"color":"green","value":90}]}}} },
-
-    { "id": 7, "gridPos": {"x":0,"y":4,"w":16,"h":9},
-      "type": "timeseries", "title": "Movimentacoes por Dia",
+      "targets": [
+        {
+          "rawSql": "SELECT ROUND(100.0 * SUM(CASE WHEN sla_status IN ('on_time_express','on_time') THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0), 1) FROM gold.mart_order_sla WHERE sla_status != 'pending'",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "green",
+                "value": 90
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 16,
+        "h": 9
+      },
+      "type": "timeseries",
+      "title": "Movimentacoes por Dia",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT DATE_TRUNC('day', movement_date) AS time, COUNT(*) AS \"Movimentacoes\" FROM gold.fct_movements WHERE movement_date >= '2025-04-20' GROUP BY 1 ORDER BY 1", "format": "time_series", "refId": "A"}],
-      "fieldConfig": {"defaults": {"custom": {"lineWidth": 2, "fillOpacity": 15}}},
-      "options": {"tooltip": {"mode": "single"}} },
-
-    { "id": 8, "gridPos": {"x":16,"y":4,"w":8,"h":9},
-      "type": "piechart", "title": "SLA por Status",
+      "targets": [
+        {
+          "rawSql": "SELECT DATE_TRUNC('day', movement_date) AS time, COUNT(*) AS \"Movimentacoes\" FROM gold.fct_movements WHERE $__timeFilter(movement_date) GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": "now-30d",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15
+          }
+        }
+      },
+      "options": {
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "timeShift": null
+    },
+    {
+      "id": 8,
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 8,
+        "h": 9
+      },
+      "type": "piechart",
+      "title": "SLA por Status",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT SUM(CASE WHEN sla_status='on_time_express' THEN 1 ELSE 0 END) AS \"Express\", SUM(CASE WHEN sla_status='on_time' THEN 1 ELSE 0 END) AS \"No Prazo\", SUM(CASE WHEN sla_status='at_risk' THEN 1 ELSE 0 END) AS \"Em Risco\", SUM(CASE WHEN sla_status='late' THEN 1 ELSE 0 END) AS \"Atrasado\", SUM(CASE WHEN sla_status='pending' THEN 1 ELSE 0 END) AS \"Pendente\" FROM gold.mart_order_sla", "format": "table", "refId": "A"}],
+      "targets": [
+        {
+          "rawSql": "SELECT SUM(CASE WHEN sla_status='on_time_express' THEN 1 ELSE 0 END) AS \"Express\", SUM(CASE WHEN sla_status='on_time' THEN 1 ELSE 0 END) AS \"No Prazo\", SUM(CASE WHEN sla_status='at_risk' THEN 1 ELSE 0 END) AS \"Em Risco\", SUM(CASE WHEN sla_status='late' THEN 1 ELSE 0 END) AS \"Atrasado\", SUM(CASE WHEN sla_status='pending' THEN 1 ELSE 0 END) AS \"Pendente\" FROM gold.mart_order_sla",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
       "options": {
         "pieType": "donut",
-        "tooltip": {"mode": "multi"},
-        "displayLabels": ["name","percent"],
-        "legend": {"displayMode": "table", "placement": "right", "values": ["value","percent"]}
-      } },
-
-    { "id": 9, "gridPos": {"x":0,"y":13,"w":12,"h":9},
-      "type": "table", "title": "Volume de Pedidos por Mes",
+        "tooltip": {
+          "mode": "multi"
+        },
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 9
+      },
+      "type": "table",
+      "title": "Volume de Pedidos por Mes",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT TO_CHAR(DATE_TRUNC('month', issued_at), 'YYYY-MM') AS \"Mes\", company_id AS \"Empresa\", COUNT(*) AS \"Pedidos\", ROUND(SUM(total_value)::numeric, 2) AS \"Valor Total\", ROUND(100.0 * SUM(CASE WHEN sla_status IN ('on_time_express','on_time') THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) AS \"SLA %\" FROM gold.mart_order_sla GROUP BY 1,2 ORDER BY 1 DESC LIMIT 24", "format": "table", "refId": "A"}] },
-
-    { "id": 14, "gridPos": {"x":12,"y":13,"w":12,"h":9},
-      "type": "table", "title": "Faturamento Mensal — Ultimos 90 Dias",
+      "targets": [
+        {
+          "rawSql": "SELECT TO_CHAR(DATE_TRUNC('month', issued_at), 'YYYY-MM') AS \"Mes\", company_id AS \"Empresa\", COUNT(*) AS \"Pedidos\", ROUND(SUM(total_value)::numeric, 2) AS \"Valor Total\", ROUND(100.0 * SUM(CASE WHEN sla_status IN ('on_time_express','on_time') THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) AS \"SLA %\" FROM gold.mart_order_sla GROUP BY 1,2 ORDER BY 1 DESC LIMIT 24",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 9
+      },
+      "type": "table",
+      "title": "Faturamento Mensal — Ultimos 90 Dias",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT to_char(date_trunc('month', issued_at), 'YYYY-MM') AS \"Mes\", ROUND(SUM(total_value)::numeric, 2) AS \"Faturamento\" FROM gold.fct_orders WHERE issued_at >= NOW() - INTERVAL '90 days' GROUP BY 1 ORDER BY 1", "format": "table", "refId": "A"}],
-      "fieldConfig": {"defaults": {"unit": "currencyBRL"}} },
-
-    { "id": 10, "gridPos": {"x":0,"y":22,"w":12,"h":9},
-      "type": "table", "title": "Pedidos por Tipo de Documento",
+      "targets": [
+        {
+          "rawSql": "SELECT to_char(date_trunc('month', issued_at), 'YYYY-MM') AS \"Mes\", ROUND(SUM(total_value)::numeric, 2) AS \"Faturamento\" FROM gold.fct_orders WHERE issued_at >= NOW() - INTERVAL '90 days' GROUP BY 1 ORDER BY 1",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyBRL"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 12,
+        "h": 9
+      },
+      "type": "table",
+      "title": "Pedidos por Tipo de Documento",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT document_type AS \"Tipo\", company_id AS \"Empresa\", COUNT(*) AS \"Qtd\", ROUND(AVG(total_value)::numeric, 2) AS \"Valor Medio\" FROM gold.fct_orders GROUP BY 1,2 ORDER BY 3 DESC LIMIT 20", "format": "table", "refId": "A"}] },
-
-    { "id": 11, "gridPos": {"x":12,"y":22,"w":12,"h":9},
-      "type": "table", "title": "Top Operadores — Produtividade",
+      "targets": [
+        {
+          "rawSql": "SELECT document_type AS \"Tipo\", company_id AS \"Empresa\", COUNT(*) AS \"Qtd\", ROUND(AVG(total_value)::numeric, 2) AS \"Valor Medio\" FROM gold.fct_orders GROUP BY 1,2 ORDER BY 3 DESC LIMIT 20",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 12,
+        "h": 9
+      },
+      "type": "table",
+      "title": "Top Operadores — Produtividade",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT operator_user AS \"Operador\", SUM(movement_count) AS \"Movimentos\", ROUND(AVG(avg_qty_per_move)::numeric,2) AS \"Qtd/Mov\", ROUND(AVG(complexity_index)::numeric,3) AS \"Complexidade\", MAX(daily_ranking) AS \"Melhor Rank\" FROM gold.mart_operator_productivity GROUP BY 1 ORDER BY 2 DESC LIMIT 20", "format": "table", "refId": "A"}] },
-
-    { "id": 15, "gridPos": {"x":0,"y":31,"w":12,"h":9},
-      "type": "table", "title": "Backlog por Faixa de Aging",
+      "targets": [
+        {
+          "rawSql": "SELECT operator_user AS \"Operador\", SUM(movement_count) AS \"Movimentos\", ROUND(AVG(avg_qty_per_move)::numeric,2) AS \"Qtd/Mov\", ROUND(AVG(complexity_index)::numeric,3) AS \"Complexidade\", MAX(daily_ranking) AS \"Melhor Rank\" FROM gold.mart_operator_productivity GROUP BY 1 ORDER BY 2 DESC LIMIT 20",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 12,
+        "h": 9
+      },
+      "type": "table",
+      "title": "Backlog por Faixa de Aging",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT CASE WHEN EXTRACT(EPOCH FROM (NOW() - issued_at))/3600.0 <= 4 THEN '1_0-4h' WHEN EXTRACT(EPOCH FROM (NOW() - issued_at))/3600.0 <= 8 THEN '2_4-8h' WHEN EXTRACT(EPOCH FROM (NOW() - issued_at))/3600.0 <= 24 THEN '3_8-24h' ELSE '4_>24h' END AS \"Faixa\", COUNT(*) AS \"Pedidos\" FROM gold.mart_order_sla WHERE sla_status = 'pending' GROUP BY 1 ORDER BY 1", "format": "table", "refId": "A"}],
-      "fieldConfig": {"defaults": {"custom": {"align": "auto"}}} },
-
-    { "id": 16, "gridPos": {"x":12,"y":31,"w":12,"h":9},
-      "type": "table", "title": "Pedidos em Aberto Mais Antigos",
+      "targets": [
+        {
+          "rawSql": "SELECT CASE WHEN EXTRACT(EPOCH FROM (NOW() - issued_at))/86400.0 <= 7 THEN '1_0-7d' WHEN EXTRACT(EPOCH FROM (NOW() - issued_at))/86400.0 <= 30 THEN '2_7-30d' WHEN EXTRACT(EPOCH FROM (NOW() - issued_at))/86400.0 <= 90 THEN '3_30-90d' ELSE '4_>90d' END AS \"Faixa\", COUNT(*) AS \"Pedidos\" FROM gold.mart_order_sla WHERE sla_status = 'pending' GROUP BY 1 ORDER BY 1",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        }
+      }
+    },
+    {
+      "id": 16,
+      "gridPos": {
+        "x": 12,
+        "y": 31,
+        "w": 12,
+        "h": 9
+      },
+      "type": "table",
+      "title": "Pedidos em Aberto Mais Antigos",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT order_id AS \"Pedido\", document_number AS \"Documento\", company_id AS \"Empresa\", issued_at AS \"Emissao\", ROUND((EXTRACT(EPOCH FROM (NOW() - issued_at))/3600.0)::numeric, 1) AS \"Aging (h)\", ROUND(total_value::numeric, 2) AS \"Valor\" FROM gold.mart_order_sla WHERE sla_status = 'pending' ORDER BY issued_at ASC LIMIT 15", "format": "table", "refId": "A"}],
-      "fieldConfig": {"defaults": {"custom": {"align": "auto"}}, "overrides": [{"matcher":{"id":"byName","options":"Valor"},"properties":[{"id":"unit","value":"currencyBRL"}]}]} },
-
-    { "id": 12, "gridPos": {"x":0,"y":40,"w":24,"h":9},
-      "type": "table", "title": "Risco de Stockout por Produto",
+      "targets": [
+        {
+          "rawSql": "SELECT order_id AS \"Pedido\", document_number AS \"Documento\", company_id AS \"Empresa\", issued_at AS \"Emissao\", ROUND((EXTRACT(EPOCH FROM (NOW() - issued_at))/3600.0)::numeric, 1) AS \"Aging (h)\", ROUND(total_value::numeric, 2) AS \"Valor\" FROM gold.mart_order_sla WHERE sla_status = 'pending' ORDER BY issued_at ASC LIMIT 15",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Valor"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyBRL"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 9
+      },
+      "type": "table",
+      "title": "Risco de Stockout por Produto",
       "datasource": "WMS PostgreSQL",
-      "targets": [{"rawSql": "SELECT product_id AS \"SKU\", warehouse_id AS \"Armazem\", product_class AS \"Classe\", current_stock AS \"Estoque\", ROUND(avg_daily_consumption::numeric,1) AS \"Consumo/Dia\", ROUND(days_to_stockout::numeric,1) AS \"Dias Ruptura\", risk_level AS \"Risco\" FROM gold.mart_stockout_risk ORDER BY CASE risk_level WHEN 'stockout' THEN 0 WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END LIMIT 20", "format": "table", "refId": "A"}],
-      "fieldConfig": {"overrides": [{"matcher":{"id":"byName","options":"Risco"},"properties":[{"id":"custom.displayMode","value":"color-background"}]}]} }
+      "targets": [
+        {
+          "rawSql": "SELECT product_id AS \"SKU\", warehouse_id AS \"Armazem\", product_class AS \"Classe\", current_stock AS \"Estoque\", ROUND(avg_daily_consumption::numeric,1) AS \"Consumo/Dia\", ROUND(days_to_stockout::numeric,1) AS \"Dias Ruptura\", risk_level AS \"Risco\" FROM gold.mart_stockout_risk ORDER BY CASE risk_level WHEN 'stockout' THEN 0 WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END LIMIT 20",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Risco"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              }
+            ]
+          }
+        ]
+      }
+    }
   ]
 }

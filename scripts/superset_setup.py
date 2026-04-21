@@ -147,9 +147,44 @@ def create_charts(dataset_ids):
                 "metrics": [{"aggregate": "COUNT", "column": {"column_name": "movement_id"}, "expressionType": "SIMPLE", "label": "Movimentações"}],
                 "groupby": [],
                 "x_axis": "movement_date",
+                "granularity_sqla": "movement_date",
                 "time_grain_sqla": "P1D",
                 "row_limit": 1000,
                 "y_axis_format": "SMART_NUMBER",
+                "time_range": "Last 30 days",
+                "adhoc_filters": [{
+                    "clause": "WHERE",
+                    "expressionType": "SQL",
+                    "sqlExpression": "movement_date >= CURRENT_DATE - INTERVAL '30 days' AND movement_date < CURRENT_DATE",
+                    "subject": None,
+                    "operator": None,
+                    "comparator": None
+                }],
+            }),
+        })
+
+        charts.append({
+            "slice_name": "Movimentações Hoje por Hora",
+            "viz_type": "echarts_timeseries_line",
+            "datasource_id": dataset_ids["fct_movements"],
+            "datasource_type": "table",
+            "params": json.dumps({
+                "metrics": [{"aggregate": "COUNT", "column": {"column_name": "movement_id"}, "expressionType": "SIMPLE", "label": "Movimentações"}],
+                "groupby": [],
+                "x_axis": "movement_date",
+                "granularity_sqla": "movement_date",
+                "time_grain_sqla": "PT1H",
+                "row_limit": 1000,
+                "y_axis_format": "SMART_NUMBER",
+                "time_range": "No filter",
+                "adhoc_filters": [{
+                    "clause": "WHERE",
+                    "expressionType": "SQL",
+                    "sqlExpression": "movement_date >= CURRENT_DATE AND movement_date < CURRENT_DATE + INTERVAL '1 day'",
+                    "subject": None,
+                    "operator": None,
+                    "comparator": None
+                }],
             }),
         })
 

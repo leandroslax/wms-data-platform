@@ -347,7 +347,34 @@
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
-  // ── SSE streaming send ────────────────────────────────────────────────────
+  // ── Sync send (POST /chat — aguarda resposta completa) ───────────────────
+
+  // Frases de loading rotativas para manter o usuário informado
+  const LOADING_MSGS = [
+    '🔍 AnalystAgent consultando PostgreSQL…',
+    '📚 ResearchAgent buscando documentos…',
+    '✍️  ReporterAgent sintetizando resposta…',
+    '⏳ Processando dados do armazém…',
+    '🧠 Agentes trabalhando, aguarde…',
+  ];
+
+  function startLoadingCycle(bubble) {
+    let i = 0;
+    const logEl = bubble.querySelector('#progress-log');
+    // show first message immediately
+    if (logEl) {
+      const item = document.createElement('div');
+      item.className = 'progress-item active';
+      item.id = 'loading-line';
+      item.innerHTML = `<div class="dot"></div><span>${LOADING_MSGS[0]}</span>`;
+      logEl.appendChild(item);
+    }
+    return setInterval(() => {
+      i = (i + 1) % LOADING_MSGS.length;
+      const line = document.getElementById('loading-line');
+      if (line) line.querySelector('span').textContent = LOADING_MSGS[i];
+    }, 4000);
+  }
 
   async function sendMessage(e) {
     e.preventDefault();
@@ -360,58 +387,33 @@
 
     addMessage('user', question);
     const progressLog = addProgressBubble();
+    const loadingTimer = startLoadingCycle(
+      document.getElementById('progress-msg')
+    );
 
     try {
-      const res = await fetch('/chat/stream', {
+      // POST /chat — síncrono; aguarda a resposta completa dos agentes
+      const res = await fetch('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question }),
       });
 
+      clearInterval(loadingTimer);
+      document.getElementById('progress-msg')?.remove();
+
       if (!res.ok) {
-        // Non-streaming error (e.g. 422 validation, 503 agent unavailable)
-        document.getElementById('progress-msg')?.remove();
         let detail = `HTTP ${res.status}`;
         try { detail = (await res.json()).detail || detail; } catch (_) {}
         addMessage('bot', `❌ Erro: ${detail}`);
         return;
       }
 
-      // Read SSE stream line by line
-      const reader  = res.body.getReader();
-      const decoder = new TextDecoder();
-      let   buffer  = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop(); // keep incomplete last line
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          let event;
-          try { event = JSON.parse(line.slice(6)); } catch (_) { continue; }
-
-          if (event.type === 'progress') {
-            updateProgress(progressLog, event.message, event.agent);
-
-          } else if (event.type === 'done') {
-            document.getElementById('progress-msg')?.remove();
-            addMessage('bot', event.answer, true);
-            break;
-
-          } else if (event.type === 'error') {
-            document.getElementById('progress-msg')?.remove();
-            addMessage('bot', `❌ Erro dos agentes: ${event.message}`);
-            break;
-          }
-        }
-      }
+      const data = await res.json();
+      addMessage('bot', data.answer, true);
 
     } catch (err) {
+      clearInterval(loadingTimer);
       document.getElementById('progress-msg')?.remove();
       addMessage('bot', `❌ Erro de conexão: ${err.message}`);
     } finally {

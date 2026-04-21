@@ -7,6 +7,8 @@
     )
 }}
 
+{% set has_geo_reference = wms_source_exists('bronze', 'geo_reference') %}
+
 -- SLA performance aggregated by company and depositor with geographic enrichment.
 -- Geography (city/state/region/lat-long) sourced from bronze.geo_reference,
 -- populated by the ViaCEP enrichment pipeline (dag_enrich_geo).
@@ -49,6 +51,7 @@ with sla_base as (
 
 -- Geographic enrichment: company entity_id maps to depositor/company codes
 company_geo as (
+    {% if has_geo_reference %}
     select
         entity_id,
         localidade  as cidade,
@@ -59,10 +62,22 @@ company_geo as (
         longitude
     from {{ source('bronze', 'geo_reference') }}
     where entity_type = 'company'
+    {% else %}
+    select
+        cast(null as text)    as entity_id,
+        cast(null as text)    as cidade,
+        cast(null as text)    as uf,
+        cast(null as text)    as estado,
+        cast(null as text)    as regiao,
+        cast(null as numeric) as latitude,
+        cast(null as numeric) as longitude
+    where 1 = 0
+    {% endif %}
 ),
 
 -- Fallback: warehouse geo when company geo is unavailable
 depositor_geo as (
+    {% if has_geo_reference %}
     select
         entity_id,
         localidade  as cidade,
@@ -73,6 +88,17 @@ depositor_geo as (
         longitude
     from {{ source('bronze', 'geo_reference') }}
     where entity_type = 'warehouse'
+    {% else %}
+    select
+        cast(null as text)    as entity_id,
+        cast(null as text)    as cidade,
+        cast(null as text)    as uf,
+        cast(null as text)    as estado,
+        cast(null as text)    as regiao,
+        cast(null as numeric) as latitude,
+        cast(null as numeric) as longitude
+    where 1 = 0
+    {% endif %}
 )
 
 select

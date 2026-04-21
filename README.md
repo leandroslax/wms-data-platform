@@ -35,9 +35,9 @@ flowchart TD
     end
 
     subgraph DASH["📊 Dashboards"]
-        GRAFANA_OPS["Grafana — WMS Operações\n16 painéis operacionais"]
+        GRAFANA_OPS["Grafana — WMS Operações\n15 painéis · últimos 30 dias"]
         GRAFANA_PIPE["Grafana — Pipeline & Airflow\n13 painéis de monitoramento"]
-        SUPERSET["Apache Superset\n14 charts · 1 dashboard"]
+        SUPERSET["Apache Superset\n13 charts · 1 dashboard"]
     end
 
     subgraph AI["🤖 Camada de IA (CrewAI + Claude)"]
@@ -93,8 +93,9 @@ python3 docker/postgres/seed.py
 docker exec wms-airflow-webserver bash -c \
   "dbt run --full-refresh --project-dir /opt/airflow/dbt_wms --profiles-dir /opt/airflow/dbt_wms"
 
-# Reconstrói dashboard Superset com 14 charts
-docker exec -i wms-superset python3 < scripts/superset_rebuild.py
+# Reconstrói dashboard Superset com 13 charts
+docker cp scripts/superset_docker_setup.py wms-superset:/tmp/
+docker exec -u root wms-superset python3 /tmp/superset_docker_setup.py
 ```
 
 ## Quick Start (dados reais — requer VPN + Oracle)
@@ -118,7 +119,7 @@ python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhos
 | API FastAPI | http://localhost:8000 | — |
 | Chat (UI) | http://localhost:8000/chat | — |
 | Docs interativos | http://localhost:8000/docs | — |
-| **Grafana** | http://localhost:3000 | admin / admin |
+| **Grafana** | http://localhost:3000 | admin / wmsadmin2026 |
 | **Apache Superset** | http://localhost:8088 | admin / admin |
 | Airflow | http://localhost:8080 | admin / admin |
 | MinIO Console | http://localhost:9001 | minioadmin / minioadmin |
@@ -153,7 +154,7 @@ python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhos
 
 | Mart | Descrição | Linhas (demo) |
 |---|---|---|
-| `mart_order_sla` | Tempo de ciclo, SLA e status por pedido | 3.703 |
+| `mart_order_sla` | Tempo de ciclo, SLA e status por pedido — `delivered_at` derivado via proxy `estadomovimento=8` | 5.480 |
 | `mart_operator_productivity` | Ranking de operadores com índice de complexidade | 16.236 |
 | `mart_picking_performance` | Produtividade por operador e turno (picks/h) | 16.987 |
 | `mart_stockout_risk` | Projeção de ruptura de estoque por SKU | 450 |
@@ -217,9 +218,23 @@ flowchart LR
 
 ## Dashboards
 
+### Grafana — WMS Mapa Geográfico (`wms_geo.json`)
+
+Dashboard geográfico com **7 painéis**:
+
+| Painel | Tipo | Métrica |
+|---|---|---|
+| Mapa SLA por Estado | geomap | SLA % por UF (choropleth) |
+| Ranking SLA por Estado | table | UF × pedidos × SLA % |
+| Armazéns e Empresas | geomap | Localização dos armazéns e empresas |
+| Detalhes por Armazém | table | Warehouse × cidade × UF |
+| Chuva × Atraso (série temporal) | timeseries | Precipitação × pedidos atrasados por dia |
+| SLA por Macro-Região | bar chart | Norte / Nordeste / Centro-Oeste / Sudeste / Sul |
+| Temperatura Média por UF | timeseries | °C por estado nos últimos 30 dias |
+
 ### Grafana — WMS Operações (`wms_operations.json`)
 
-Dashboard operacional com **16 painéis** e range de 1 ano:
+Dashboard operacional com **15 painéis** e range padrão de **30 dias**:
 
 | Painel | Tipo | Métrica |
 |---|---|---|
@@ -229,13 +244,13 @@ Dashboard operacional com **16 painéis** e range de 1 ano:
 | Total de Movimentos | stat | COUNT fct_movements |
 | Produtos em Risco Crítico | stat (vermelho) | risk_level IN (critical, stockout) |
 | SLA % no Prazo | stat (verde/amarelo/vermelho) | on_time + on_time_express / total fechado |
-| Movimentações por Dia | timeseries | DATE_TRUNC diário — sazonalidade 365 dias |
+| Movimentações por Dia | timeseries (w=16) | DATE_TRUNC diário com `$__timeFilter` — últimos 30 dias |
 | SLA por Status | piechart donut | Express / No Prazo / Em Risco / Atrasado / Pendente |
 | Volume de Pedidos por Mês | table | 12 meses × empresa × SLA % |
 | Faturamento Mensal | table | Últimos 90 dias em R$ |
 | Pedidos por Tipo de Documento | table | NF / OS / TE / RE × empresa |
 | Top Operadores — Produtividade | table | Movimentos / Qtd por mov / Complexidade |
-| Backlog por Faixa de Aging | table | 0-4h / 4-8h / 8-24h / >24h |
+| Backlog por Faixa de Aging | table | 0-7d / 7-30d / 30-90d / >90d |
 | Pedidos em Aberto Mais Antigos | table | Top 15 mais antigos com aging em horas |
 | Risco de Stockout por Produto | table | SKU × classe × dias até ruptura × risco colorido |
 
@@ -258,7 +273,7 @@ Dashboard de monitoramento de infraestrutura com **13 painéis**:
 
 ### Apache Superset — WMS Operations
 
-Dashboard com **14 charts** construídos via manipulação direta do SQLite de metadados:
+Dashboard com **13 charts** construídos via manipulação direta do SQLite de metadados:
 
 ![Superset — WMS Operations](docs/images/superset_wms_operations.png)
 
@@ -285,8 +300,8 @@ O dashboard do Superset complementa o Grafana com uma visão mais analítica da 
 | Saúde do Inventário | table | mart_inventory_health |
 | Performance de Picking por Turno | table | mart_picking_performance |
 
-> **Script de reconstrução:** `scripts/superset_rebuild.py`  
-> Roda via `docker exec -i wms-superset python3 < scripts/superset_rebuild.py`
+> **Script de reconstrução:** `scripts/superset_docker_setup.py`  
+> Roda via `docker exec -u root wms-superset python3 /tmp/superset_docker_setup.py` (após `docker cp`)
 
 ---
 
@@ -306,9 +321,11 @@ O script `docker/postgres/seed.py` gera dados realistas sem necessidade de Oracl
 **Padrões realistas gerados:**
 - **Sazonalidade:** Q4 (out–dez) 50% acima da média, fim de semana 70% menor
 - **Valores:** distribuição log-normal (mediana ~R$ 3k, cauda longa até R$ 100k+)
-- **SLA:** ~15% express (<12h), ~55% no prazo, ~12% atrasado, ~18% pendente
+- **SLA:** ~15% express (<12h), ~55% no prazo, ~12% atrasado, ~18% pendente (demo sintético)
 - **Produtos ABC:** classe A com alto consumo diário (15–50 un/dia), C com baixo (1–8 un/dia)
 - **Inserção em batches** de 5.000 linhas para estabilidade de memória
+
+> **Dados reais Oracle:** Com extração de 1 ano via `make pipeline-real`, a distribuição SLA real observada é ~43% express, ~8% no prazo, ~8% em risco, ~39% atrasado, ~2% pendente. O `DATAENTREGA` não é preenchido nesta instalação Oracle WMS — a data de entrega é derivada via proxy: primeiro movimento de saída (`estadomovimento = 8`) do mesmo depositante após a emissão do pedido.
 
 ---
 
@@ -360,7 +377,7 @@ Pergunta do usuário
 | Embeddings Qdrant | `BAAI/bge-base-en-v1.5` (768 dims) | FastEmbed — local, sem custo |
 | Memória CrewAI (Chroma) | `text-embedding-3-small` | OpenAI — requer `OPENAI_API_KEY` |
 
-> **Nota:** A memória entre sessões (Chroma) usa embeddings da OpenAI. Para desabilitar a memória e rodar sem `OPENAI_API_KEY`, configure `memory=False` no `WMSCrew`.
+> **Nota:** A memória entre sessões (Chroma) usa embeddings da OpenAI. Para rodar sem `OPENAI_API_KEY`, o `WMSCrew` detecta automaticamente a ausência da variável e inicializa com `memory=False`.
 
 ### Qdrant — Knowledge Base
 
@@ -395,14 +412,15 @@ Conteúdo indexado: ADRs de arquitetura, runbooks de recuperação de pipeline, 
 
 ## Orquestração Airflow
 
-5 DAGs com ordem de execução:
+6 DAGs com ordem de execução:
 
 ```
-dag_extract_wms      → 01h  — extração Oracle → bronze
-dag_transform_dbt    → 03h  — dbt run (silver + gold)
-dag_quality_check    → 04h  — testes dbt
-dag_embed_rag        → semanal — re-indexa docs no Qdrant
+dag_extract_wms       → 01h  — extração Oracle → bronze
+dag_transform_dbt     → 03h  — dbt run (silver + gold)
+dag_quality_check     → 04h  — testes dbt
+dag_embed_rag         → semanal — re-indexa docs no Qdrant
 dag_freshness_monitor → horário — alerta de frescor dos dados
+dag_enrich_geo        → semanal (seg 03h) — ViaCEP + IBGE + Open-Meteo → geo_reference + weather_daily
 ```
 
 > Oracle não acessível localmente: `check_oracle_conn` e `wait_for_extract` falham por design. Para rodar o dbt sem Airflow: `docker exec wms-airflow-webserver bash -c "dbt run --full-refresh --project-dir /opt/airflow/dbt_wms --profiles-dir /opt/airflow/dbt_wms"`
@@ -418,15 +436,16 @@ docker/
     seed.py               # gera 1 ano de dados sintéticos realistas
   grafana/
     dashboards/
-      wms_operations.json # dashboard operacional WMS (16 painéis)
+      wms_operations.json # dashboard operacional WMS (15 painéis, range 30d)
       wms_pipeline.json   # monitoramento Airflow + ETL (13 painéis)
+      wms_geo.json        # mapa geográfico SLA + clima (7 painéis)
     provisioning/
       datasources/
         postgres.yml          # datasource WMS PostgreSQL
         airflow_postgres.yml  # datasource Airflow PostgreSQL
 
 scripts/
-  superset_rebuild.py     # reconstrói Superset do zero: 14 charts + dashboard
+  superset_docker_setup.py  # reconstrói Superset do zero: 13 charts + dashboard
 
 transform/dbt_wms/
   models/staging/         # 3 views (stg_orders, stg_inventory, stg_movements)
@@ -471,21 +490,22 @@ Makefile
 ✅ Bronze — init.sql, seed demo (1 ano), extração watermark Oracle
 ✅ Silver — 7 modelos dbt (staging views + fct + dim)
 ✅ Gold — 8 marts analíticos, dbt cross-db compat
-✅ Grafana — 2 dashboards segregados (Operações + Pipeline/Airflow)
-✅ Superset — 14 charts, dashboard reconstruído via script
+✅ Grafana — 3 dashboards (Operações · Pipeline/Airflow · Mapa Geográfico)
+✅ Superset — 13 charts, dashboard reconstruído via script
 ✅ Seed 1 ano — sazonalidade, ABC, 20 operadores, SLA distribuído
 ✅ Agentes IA — AnalystAgent + ResearchAgent + ReporterAgent (end-to-end)
 ✅ RAG — 86 chunks indexados (ADRs, runbooks, arquitetura)
 ✅ API FastAPI — rota /chat + HTML chat UI
+✅ Enriquecimento geográfico — ViaCEP + IBGE + Open-Meteo, DAG semanal,
+                               tabelas geo_reference e weather_daily,
+                               JOINs nos marts geo/weather
 
 ⬜ EM ANDAMENTO / PRÓXIMOS PASSOS
 ──────────────────────────────────────────────────────────────
 ⬜ DAGs Airflow — implementar lógica interna completa
-⬜ Testes de integração dos agentes (DeepEval)
-⬜ Enriquecimento geográfico — ViaCEP, IBGE, INMET, ANTT
+⬜ Observabilidade — LangFuse traces nos agentes, DeepEval evals
 ⬜ Frontend React — ChatInterface + dashboards interativos
 ⬜ CI/CD — GitHub Actions (lint, test, dbt compile, security scan)
-⬜ Observabilidade — LangFuse traces, DeepEval evals
 ⬜ Melhorar a experiência local no Mac com mais automações Docker
 ```
 
@@ -524,7 +544,8 @@ docker exec wms-airflow-webserver bash -c \
             --profiles-dir /opt/airflow/dbt_wms"
 
 # Superset — reconstrói dashboard do zero
-docker exec -i wms-superset python3 < scripts/superset_rebuild.py
+docker cp scripts/superset_docker_setup.py wms-superset:/tmp/
+docker exec -u root wms-superset python3 /tmp/superset_docker_setup.py
 
 # Dados reais (requer VPN + Oracle)
 make extract-full             # extração full 90 dias Oracle → bronze
