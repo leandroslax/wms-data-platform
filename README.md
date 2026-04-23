@@ -193,7 +193,12 @@ flowchart LR
 
 ### Grafana — WMS Mapa Geográfico (`wms_geo.json`)
 
+![Grafana — WMS Mapa Geográfico](docs/images/grafana_geo.png)
+
 Dashboard geográfico com **7 painéis**:
+
+Observação: esta camada usa **CEPs sintéticos por warehouse/company/depositor**
+para demonstração local. O Oracle WMS atual não fornece CEP de entrega confiável.
 
 | Painel | Tipo | Métrica |
 |---|---|---|
@@ -203,7 +208,7 @@ Dashboard geográfico com **7 painéis**:
 | Detalhes por Armazém | table | Warehouse × cidade × UF |
 | Chuva × Atraso (série temporal) | timeseries | Precipitação × pedidos atrasados por dia |
 | SLA por Macro-Região | bar chart | Norte / Nordeste / Centro-Oeste / Sudeste / Sul |
-| Temperatura Média por UF | timeseries | °C por estado nos últimos 30 dias |
+| Temperatura Média por UF | timeseries | °C por estado nos últimos 365 dias |
 
 ### Grafana — WMS Operações (`wms_operations.json`)
 
@@ -495,8 +500,9 @@ Makefile
 ✅ RAG — 89 chunks indexados (ADRs, runbooks, contratos operacionais)
 ✅ API FastAPI — rota /chat + HTML chat UI
 ✅ Frontend React — ChatInterface com streaming SSE + cards de métricas
-✅ Enriquecimento geográfico — ViaCEP + IBGE + Open-Meteo, DAG semanal,
-                               tabelas geo_reference e weather_daily,
+✅ Enriquecimento geográfico — camada sintética para demo local
+                               (CEPs fictícios + clima por UF),
+                               DAG semanal, tabelas geo_reference e weather_daily,
                                JOINs nos marts geo/weather
 ✅ DAGs Airflow — 6 DAGs implementadas com lógica completa
 ✅ CI/CD — 9 GitHub Actions workflows (lint, dbt compile, deploy, security scan)
