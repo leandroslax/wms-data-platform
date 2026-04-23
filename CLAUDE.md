@@ -1,36 +1,29 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance when working with code in this repository.
 
 ## Project Overview
 
-WMS Data Platform is a modern data engineering portfolio project built on top of Oracle WMS. It covers the full data engineering cycle: real-time CDC, medallion architecture on S3 with Apache Iceberg, dbt on Glue, Airflow orchestration, geographic enrichment, Redshift Serverless warehouse, and a conversational AI layer with autonomous agents.
-
-> **Note:** As of April 2026, only the architecture documentation exists (`docs/architecture.md`). The full repository structure below represents the planned implementation.
+WMS Data Platform is a modern data engineering portfolio project built on top of Oracle WMS. It covers the full data engineering cycle: batch extraction, medallion architecture (bronze/silver/gold schemas on PostgreSQL), dbt transformations, Airflow orchestration, geographic enrichment via public APIs, and a conversational AI layer with autonomous agents.
 
 ---
 
-## Planned Commands
-
-Once implemented, development will use:
+## Commands
 
 ```bash
 # Local environment
-make dev          # docker-compose up (Oracle XE + Airflow mock)
+make dev          # docker-compose up -d (PostgreSQL + Airflow + Grafana)
 make test         # pytest tests/
 make test-unit    # pytest tests/unit/
-make lint         # pre-commit run --all-files (black, flake8, isort, checkov, gitleaks)
+make lint         # pre-commit run --all-files (black, flake8, isort, gitleaks)
 
 # dbt
 dbt run --project-dir transform/dbt_wms
 dbt test --project-dir transform/dbt_wms
 dbt compile --project-dir transform/dbt_wms
-
-# Terraform
-cd infra/terraform/envs/dev && terraform init && terraform plan
 ```
 
-Pre-commit hooks: `black`, `flake8`, `isort`, `checkov`, `gitleaks`.
+Pre-commit hooks: `black`, `flake8`, `isort`, `gitleaks`.
 
 ---
 
@@ -40,50 +33,44 @@ Pre-commit hooks: `black`, `flake8`, `isort`, `checkov`, `gitleaks`.
 
 ```
 Oracle WMS
-  ├─[CDC]──► DMS → Kinesis → Lambda Consumer ──► S3 Bronze (Iceberg)
-  └─[batch]─► Airflow → Lambda (cx_Oracle) ─────────────────────────►│
-                                                                       │
-                  ViaCEP + IBGE + INMET + ANTT                        │
-                    Lambda Enrichment + SQS ──────────────────────────►│
-                                                                       ▼
-                                                         dbt + Glue (Spark) → S3 Silver (Iceberg)
-                                                         dbt + Glue (Spark) → S3 Gold (Iceberg)
-                                                         Redshift COPY → Redshift Serverless
-                                                                       │
-                                                    ┌──────────────────┤
-                                               AI Agents           Grafana
-                                          AnalystAgent (SQL)       4 Dashboards
-                                          ResearchAgent (RAG)
-                                          ReporterAgent (synthesis)
-                                                    │
-                                               FastAPI (Lambda + API Gateway)
-                                                    │
-                                             React + Vite (S3 + CloudFront)
+  └─[batch]─► Airflow → Python extractor (cx_Oracle) ──► PostgreSQL bronze
+                                                                │
+              ViaCEP + IBGE + Open-Meteo                        │
+                enrichment scripts ─────────────────────────────►│
+                                                                │
+                                               dbt-postgres → PostgreSQL silver
+                                               dbt-postgres → PostgreSQL gold
+                                                                │
+                                         ┌──────────────────────┤
+                                    AI Agents               Grafana
+                               AnalystAgent (SQL)           4 Dashboards
+                               ResearchAgent (RAG)
+                               ReporterAgent (synthesis)
+                                         │
+                                    FastAPI
+                                         │
+                                  React + Vite
 ```
 
 ### Layer-by-Layer Summary
 
 | Layer | Location | Technology |
 |---|---|---|
-| Orchestration | `pipelines/dags/` | Apache Airflow (Astronomer Cloud, 7 DAGs) |
-| Batch extraction | `pipelines/extraction/` | Lambda + cx_Oracle, checkpoint in S3 |
-| CDC | `pipelines/cdc/` | AWS DMS → Kinesis → `kinesis_consumer.py` |
-| Enrichment | `pipelines/enrichment/` | Lambda + SQS, APIs: ViaCEP/IBGE/INMET/ANTT |
-| Data Lake | S3 buckets | Apache Iceberg (bronze/silver/gold), Glue Catalog |
-| Transformations | `transform/dbt_wms/` | dbt Core on AWS Glue (Spark) |
-| Warehouse | Redshift Serverless | 8 analytical marts, Redshift Spectrum for Iceberg |
-| AI Agents | `app/agents/` | LangChain/CrewAI, Claude Haiku via Bedrock, Qdrant RAG |
-| API | `app/api/` | FastAPI on Lambda + API Gateway + WAF |
-| Frontend | `web/` | React + Vite, S3 + CloudFront |
-| Infrastructure | `infra/terraform/` | 15 Terraform modules |
+| Orchestration | `pipelines/dags/` | Apache Airflow (local Docker, 7 DAGs) |
+| Batch extraction | `pipelines/extraction/` | Python + cx_Oracle, checkpoint in PostgreSQL |
+| Enrichment | `pipelines/enrichment/` | Python scripts, APIs: ViaCEP/IBGE/Open-Meteo/ANTT |
+| Data Lake | PostgreSQL schemas | bronze / silver / gold medallion |
+| Transformations | `transform/dbt_wms/` | dbt Core + dbt-postgres |
+| Serving | PostgreSQL gold schema | 8 analytical marts |
+| AI Agents | `app/agents/` | LangChain/CrewAI, Claude via Anthropic API, Qdrant RAG |
+| API | `app/api/` | FastAPI |
+| Frontend | `web/` | React + Vite |
 
 ### Key Architectural Decisions
 
-- **Iceberg over Delta Lake** (ADR-001): Native AWS integration with Glue Catalog, Glue jobs, and Redshift Spectrum.
-- **DMS CDC over timestamp extraction** (ADR-002): Captures DELETEs and multiple UPDATEs per transaction; no dependency on `updated_at`.
-- **Glue for dbt transforms, Redshift for serving** (ADR-003): Separation of concerns — managed Spark transform vs. optimized analytical queries.
-- **Kinesis over Kafka** (ADR-004): Volume does not justify Kafka; Kinesis free tier is sufficient.
-- **Lambda over EC2/ECS** (ADR-005): Zero cost at idle, auto-scale, adequate for 8GB batch jobs.
+- **Medallion on PostgreSQL** (ADR-001): bronze/silver/gold schemas on a single Postgres instance; simple, portable, no cloud dependency.
+- **Batch extraction over CDC** (ADR-002): cx_Oracle incremental extraction with checkpoint; reliable and self-contained.
+- **dbt-postgres for transform and serving** (ADR-003): dbt models compile to PostgreSQL; same engine for transform and consumption.
 
 ### dbt Marts
 
@@ -97,42 +84,29 @@ Eight analytical models in `transform/dbt_wms/models/marts/`:
 - `mart_geo_inventory` — inventory coverage by region
 - `mart_weather_impact` — delay × weather correlation
 
-### S3 Buckets
-
-| Bucket | Purpose |
-|---|---|
-| `wms-dp-{env}-bronze-{region}-{account}` | Raw Oracle data + CDC events (no transformation) |
-| `wms-dp-{env}-silver-{region}-{account}` | Normalized, deduped, typed, geocoded, enriched |
-| `wms-dp-{env}-gold-{region}-{account}` | Aggregated marts ready for consumption |
-| `wms-dp-{env}-artifacts-{region}-{account}` | Checkpoints, API response cache, dbt artifacts |
-| `wms-dp-{env}-query-results-{region}-{account}` | query results and transient artifacts (7-day lifecycle) |
-| `wms-dp-{env}-frontend-{region}-{account}` | React build (served via CloudFront OAC) |
-| `wms-data-platform-tf-state-896159010925` | Terraform remote state (versioning + MFA delete) |
-
-### CI/CD (GitHub Actions — 7 workflows)
+### CI/CD (GitHub Actions)
 
 | Workflow | Trigger |
 |---|---|
-| `ci.yml` | PR — lint, tests, dbt compile, tf validate |
-| `deploy-infra.yml` | PR plan / merge apply |
-| `deploy-lambda.yml` | Docker build → ECR → Lambda update |
-| `deploy-frontend.yml` | React build → S3 sync → CloudFront invalidation |
+| `ci.yml` | PR — lint, tests, dbt compile |
 | `dbt-run.yml` | Scheduled daily dbt run + test |
-| `security-scan.yml` | checkov, bandit, trivy, gitleaks |
-| `docs.yml` | dbt docs + API docs → S3 |
+| `security-scan.yml` | bandit, trivy, gitleaks |
 
-Branch strategy: `feature/*` → `dev` → `main`. Production deploys require manual approval.
-
-### External Services (all free tier)
-
-Astronomer Cloud (Airflow), Qdrant Cloud (vector store), Grafana Cloud (dashboards), LangFuse (LLM observability), DeepEval (agent evaluation).
+Branch strategy: `feature/*` → `dev` → `main`.
 
 ---
 
 ## Tech Stack
 
 - **Language**: Python 3.11+
-- **IaC**: Terraform (15 modules, remote state on S3 + DynamoDB lock, `dev`/`prod` environments)
-- **Security**: WAF + KMS (3 keys) + GuardDuty + CloudTrail + Secrets Manager; least-privilege IAM (1 role per service)
-- **Observability**: CloudWatch (6 log groups, 8 alarms), SNS, Grafana Cloud, LangFuse, DeepEval, AWS Budgets ($50/$100/$150/$200 alerts)
-- **Local dev**: Docker Compose (Oracle XE + Airflow mock), `devcontainer.json`
+- **Orchestration**: Apache Airflow (local Docker)
+- **Database**: PostgreSQL 15 (bronze / silver / gold schemas)
+- **Transform**: dbt Core + dbt-postgres
+- **Enrichment**: ViaCEP, IBGE, Open-Meteo, ANTT (public APIs)
+- **AI Agents**: LangChain / CrewAI, Claude via Anthropic API
+- **Vector store**: Qdrant (local Docker)
+- **API**: FastAPI
+- **Frontend**: React + Vite
+- **Dashboards**: Grafana (local Docker, port 3000)
+- **Observability**: LangFuse, DeepEval
+- **Local dev**: Docker Compose, Pre-commit

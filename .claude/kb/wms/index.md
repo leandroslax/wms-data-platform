@@ -5,9 +5,9 @@ This domain captures the project-specific knowledge for the WMS Data Platform.
 ## Scope
 
 - Oracle WMS extraction boundaries
-- S3 bronze, silver, gold conventions
+- PostgreSQL bronze, silver, gold schema conventions
 - dbt marts for warehouse operations
-- AWS-native serving and security design
+- Local-first serving and security design
 - AI agents for operational analytics and troubleshooting
 
 ## Entry Points

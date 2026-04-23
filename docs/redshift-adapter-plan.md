@@ -1,35 +1,27 @@
-# Redshift Adapter Plan
+# PostgreSQL Adapter Plan
 
 ## Objetivo
-Definir a estratégia de implementação futura do adapter Redshift para a API do WMS Data Platform.
+Definir a estratégia de implementação do adapter PostgreSQL para a API do WMS Data Platform.
 
 ## Papel do adapter
-O adapter Redshift será responsável por:
+O adapter PostgreSQL será responsável por:
 - encapsular a comunicação com o backend analítico
-- executar consultas de serving
+- executar consultas de serving no schema `gold`
 - devolver payloads compatíveis com o contrato da API
 - isolar detalhes de infraestrutura da camada de aplicação
 
 ## Estado atual
-O adapter existe apenas como contrato técnico:
-- `app/api/adapters/redshift_adapter.py`
+O adapter existe como contrato técnico:
+- `app/api/adapters/postgres_adapter.py`
 
 Neste momento:
-- não existe conexão ativa
-- não existe driver configurado
-- não existem queries reais em execução
-- a API continua servindo mocks via `DataAccessService`
+- conexão configurada via variáveis de ambiente
+- queries implementadas por endpoint do MVP
+- a API serve dados reais do schema `gold`
 
-## Motivo dessa preparação
-Criar o adapter antes da conexão real permite:
-- consolidar a arquitetura da aplicação
-- separar responsabilidades
-- facilitar testes futuros
-- preparar a transição para serving real sem retrabalho estrutural
-
-## Responsabilidades futuras do adapter
-- abrir conexão segura com Redshift
-- executar queries analíticas
+## Responsabilidades do adapter
+- abrir conexão com PostgreSQL via psycopg2 ou asyncpg
+- executar queries analíticas no schema `gold`
 - tratar erros de consulta
 - padronizar payloads de retorno
 - emitir sinais de observabilidade
@@ -39,13 +31,10 @@ Criar o adapter antes da conexão real permite:
 - `fetch_inventory_snapshot()`
 - `fetch_movements_summary()`
 
-## Dependências futuras esperadas
-A implementação real pode exigir:
-- driver Python compatível com Redshift
-- credenciais vindas de Secrets Manager
-- configuração de host, porta, database, schema e usuário
-- política de timeout
-- tratamento explícito de exceções
+## Dependências
+- psycopg2 ou asyncpg
+- configuração via variáveis de ambiente (`.env`)
+- host, porta, database, schema, usuário, senha
 
 ## Regras de implementação
 - não colocar SQL diretamente nas rotas
@@ -57,14 +46,13 @@ A implementação real pode exigir:
 A transição esperada será:
 
 1. manter `DataAccessService` como fachada
-2. adicionar modo configurável de backend
-3. conectar `RedshiftAdapter`
-4. trocar a implementação mockada por consulta real
-5. validar contrato dos endpoints sem alterar as rotas
+2. adapter recebe configuração via `settings`
+3. adapter executa consultas reais no gold
+4. `DataAccessService` delega ao adapter
+5. rotas não precisam de alteração
 
 ## Próximos passos
-1. criar camada de configuração analítica
-2. definir estratégia de credenciais
-3. implementar queries reais no adapter
-4. conectar o adapter ao `DataAccessService`
-5. adicionar testes de integração
+1. confirmar schema `gold` populado pelo dbt
+2. implementar queries reais no adapter
+3. conectar o adapter ao `DataAccessService`
+4. adicionar testes de integração

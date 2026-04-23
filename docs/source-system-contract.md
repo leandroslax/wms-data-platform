@@ -126,7 +126,7 @@ Este documento representa a camada de descoberta do projeto. Nenhuma tabela abai
 - Confirmar coluna de atualização incremental.
 - Confirmar política de mascaramento para campos sensíveis.
 - Confirmar volumetria estimada por entidade.
-- Confirmar destino em Iceberg, Glue Catalog e Redshift.
+- Confirmar destino nos schemas bronze / silver / gold do PostgreSQL.
 
 ## Próximos passos
 1. Validar as entidades prioritárias com a origem real.

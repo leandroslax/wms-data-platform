@@ -22,14 +22,14 @@ Ela deve:
 A estratégia do projeto será dividida em duas etapas:
 
 ### Etapa 1. MVP
-- API servindo respostas a partir de uma camada de acesso a dados mockada ou simplificada
+- API servindo respostas a partir de uma camada de acesso a dados simplificada
 - contrato de endpoints definido
 - modelo de consumo preparado para integração futura
 
 ### Etapa 2. Produção analítica
-- dados consumidos a partir de marts derivados da silver
-- serving conectado ao Redshift
-- API consultando tabelas estáveis e orientadas a consumo
+- dados consumidos a partir de marts no schema `gold`
+- API consultando tabelas estáveis e orientadas a negócio
+- Grafana conectado ao mesmo schema `gold`
 
 ## Fonte analítica esperada
 Marts do MVP:
@@ -42,8 +42,7 @@ Dimensões iniciais:
 
 ## Consumidores da camada de serving
 - FastAPI
-- dashboards operacionais
-- dashboards executivos
+- Grafana (dashboards operacionais e executivos)
 - agentes analíticos
 - futuras consultas de copiloto
 
@@ -51,7 +50,7 @@ Dimensões iniciais:
 
 ### `/orders/summary`
 Fonte esperada:
-- `fct_orders`
+- `gold.fct_orders`
 
 Métricas esperadas:
 - total_orders
@@ -60,7 +59,7 @@ Métricas esperadas:
 
 ### `/inventory/snapshot`
 Fonte esperada:
-- `fct_inventory_snapshot`
+- `gold.fct_inventory_snapshot`
 
 Métricas esperadas:
 - total_skus
@@ -70,7 +69,7 @@ Métricas esperadas:
 
 ### `/movements/summary`
 Fonte esperada:
-- `fct_movements`
+- `gold.fct_movements`
 
 Métricas esperadas:
 - total_movements
@@ -79,19 +78,19 @@ Métricas esperadas:
 ## Arquitetura alvo de serving
 Fluxo esperado:
 
-1. extratores alimentam bronze
-2. bronze gera silver normalizada
-3. dbt produz marts analíticos
-4. marts são disponibilizados para serving
-5. API consulta serving
-6. dashboards e agentes reutilizam os mesmos contratos
+1. extratores alimentam `bronze`
+2. `bronze` gera `silver` normalizada via dbt
+3. dbt produz marts analíticos no `gold`
+4. marts são disponibilizados para serving via PostgreSQL
+5. API consulta `gold` diretamente
+6. Grafana e agentes reutilizam os mesmos contratos
 
 ## Estratégia tecnológica
-- armazenamento lakehouse: S3 + Iceberg
-- catálogo: Glue Data Catalog
-- transformação: dbt + Glue
-- serving analítico: Redshift
-- API: FastAPI
+- armazenamento: PostgreSQL (schemas `bronze`, `silver`, `gold`)
+- transformação: dbt Core + dbt-postgres
+- serving analítico: PostgreSQL gold schema
+- API: FastAPI + psycopg2/asyncpg
+- dashboards: Grafana (Docker local)
 
 ## Regras de modelagem para serving
 - tabelas de serving devem ser orientadas a consulta
@@ -104,10 +103,9 @@ A camada de serving deve futuramente registrar:
 - latência de consulta
 - volume retornado
 - erros por endpoint
-- custo de consulta quando aplicável
 
 ## Próximos passos
-1. ligar `DataAccessService` a uma fonte analítica real
-2. definir contrato de consulta ao Redshift
+1. ligar `DataAccessService` ao PostgreSQL gold
+2. definir contrato de consulta por endpoint
 3. alinhar marts do dbt às necessidades da API
 4. conectar serving aos agentes analíticos do projeto

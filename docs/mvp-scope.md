@@ -48,18 +48,13 @@ Estas entidades continuam no roadmap, mas não bloqueiam a primeira entrega:
 - camada RAG completa
 - agentes multi-step mais avançados
 - dashboards executivos completos
-- serving avançado no Redshift
 
 ## Entregáveis do MVP
 
 ### Infraestrutura
-- backend remoto Terraform
-- S3 bronze/silver/gold
-- Secrets Manager
-- KMS
-- ECR
-- Lambda base
-- monitoring essencial
+- Docker Compose com PostgreSQL, Airflow, Grafana e Qdrant
+- schemas bronze / silver / gold no PostgreSQL
+- variáveis de ambiente isoladas em `.env`
 
 ### Pipeline
 - extractor para Orders
@@ -78,20 +73,18 @@ Estas entidades continuam no roadmap, mas não bloqueiam a primeira entrega:
 
 ### Serving
 - base para API FastAPI
-- consultas analíticas iniciais
+- consultas analíticas iniciais ao schema gold
 - contrato para futura exposição via agentes
 
 ## Critérios de pronto do MVP
 - as 3 entidades estão mapeadas da origem até silver/gold
-- os artefatos Terraform principais aplicam com sucesso
-- existe imagem publicada no ECR
-- Lambdas base sobem sem erro
+- Docker Compose sobe sem erro
 - dbt possui staging e marts iniciais
 - documentação explica claramente o fluxo fim a fim
 
 ## Próximos passos após o MVP
 1. adicionar Operators e Tasks
 2. enriquecer dimensões de produto e localização
-3. conectar serving analítico ao Redshift
-4. adicionar RAG com runbooks
+3. conectar serving analítico ao gold via API real
+4. adicionar RAG com runbooks via Qdrant
 5. ativar agentes de análise e relatório

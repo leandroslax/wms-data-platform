@@ -21,7 +21,7 @@ Essa abordagem permite:
 - estabilizar o contrato da API antes do backend analítico final
 - desenvolver em paralelo com infra, dbt e ingestão
 - reduzir acoplamento prematuro
-- deixar a transição para Redshift mais simples
+- deixar a transição para PostgreSQL gold mais simples
 
 ## Camadas da API
 
@@ -53,7 +53,7 @@ A evolução esperada é:
 1. manter o contrato atual dos endpoints
 2. manter os métodos públicos do `DataAccessService`
 3. substituir a implementação mockada por consultas reais
-4. conectar essa implementação ao Redshift
+4. conectar essa implementação ao PostgreSQL gold schema
 5. adicionar tratamento de erro, timeout e observabilidade
 
 ## Métodos atuais da camada de acesso
@@ -70,13 +70,12 @@ Cada método deve:
 
 ## Benefício arquitetural
 Essa separação permite:
-- plugar Redshift depois
+- plugar qualquer backend analítico depois
 - criar testes por camada
 - trocar backend sem reescrever endpoints
 - manter clareza para entrevista técnica
 
 ## Próximos passos
-1. criar camada de configuração para conexão analítica
-2. preparar adapter futuro para Redshift
-3. implementar queries reais quando a camada de serving estiver pronta
-4. adicionar testes para a camada de serviços
+1. criar camada de configuração para conexão ao PostgreSQL gold
+2. implementar queries reais quando a camada de serving estiver pronta
+3. adicionar testes para a camada de serviços

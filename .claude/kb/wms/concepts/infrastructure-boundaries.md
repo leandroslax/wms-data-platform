@@ -1,25 +1,24 @@
 # Infrastructure Boundaries
 
-## Private network components
+## Local Docker services
 
-- Oracle connectivity path
-- extraction Lambda
-- CDC components
-- Redshift Serverless
-- secrets access
+- PostgreSQL (bronze / silver / gold schemas)
+- Airflow scheduler + webserver
+- Grafana dashboards
+- Qdrant vector store
 
-## Public edge components
+## External connections
 
-- API Gateway
-- CloudFront
-- WAF
+- Oracle WMS: read-only via cx_Oracle (private host)
+- Public enrichment APIs: ViaCEP, IBGE, Open-Meteo, ANTT
 
-## Storage boundaries
+## Security boundaries
 
-- data buckets are private and encrypted
-- frontend bucket is private behind CloudFront OAC
-- Terraform state bucket is isolated from data buckets
+- Credentials in `.env` (never committed)
+- Oracle access is read-only
+- API protected by API Key
+- Gitleaks pre-commit hook prevents secrets in code
 
 ## Design rule
 
-Keep data plane private, expose only the product edge, and route service-to-service access through IAM and VPC endpoints where possible.
+Keep data processing local, expose only the FastAPI edge, and isolate credentials via environment variables.

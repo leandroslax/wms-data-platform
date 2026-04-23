@@ -4,7 +4,7 @@ Use a layered repository structure that mirrors the platform architecture.
 
 ## Rules
 
-1. Infrastructure lives in `infra/terraform/` with modules and envs.
+1. Infrastructure lives in `docker/` (Grafana, Airflow configs) and `docker-compose.yml`.
 2. Ingestion and orchestration live in `pipelines/`.
 3. Transform logic lives in `transform/dbt_wms/`.
 4. Product-facing code lives in `app/` and `web/`.

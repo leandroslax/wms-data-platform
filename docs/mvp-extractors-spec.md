@@ -16,7 +16,7 @@ Todos os extratores do MVP devem seguir estas regras:
 - Produzir payload bruto para a camada bronze.
 - Preservar campos necessários para auditoria.
 - Registrar metadados de execução.
-- Ser compatíveis com execução local e futura execução em Lambda.
+- Ser compatíveis com execução local via Airflow.
 - Permitir incrementalidade quando aplicável.
 
 ## Estrutura esperada de saída bronze
@@ -127,5 +127,5 @@ Cada extractor deve produzir logs com:
 ## Próximos passos
 1. alinhar os arquivos Python de extractor com esta especificação
 2. definir contrato de checkpoint por entidade
-3. definir estratégia de escrita Iceberg/bronze
-4. conectar esses extratores à orquestração futura
+3. definir estratégia de escrita no schema bronze (PostgreSQL)
+4. conectar esses extratores à orquestração Airflow

@@ -1,8 +1,8 @@
-# ADR-002: Glue vs Redshift for Transform
+# ADR-002: Extração Batch com cx_Oracle
 
 ## Decision
 
-Separar transformacao serverless e serving analitico.
+Usar extração incremental via cx_Oracle com checkpoint em vez de CDC por streaming.
 
 ## Status
 
@@ -10,8 +10,8 @@ Accepted
 
 ## Context
 
-Glue simplifica a escrita e transformacao de tabelas Iceberg com Spark gerenciado, enquanto Redshift atende melhor workloads de serving e consultas de baixa latencia.
+O volume de dados do Oracle WMS não justifica infraestrutura de streaming. A extração incremental com controle de checkpoint garante confiabilidade, simplicidade e não depende de acesso ao redo log ou de serviços de captura de mudanças externos.
 
 ## Outcome
 
-dbt sera preparado para Glue no fluxo principal e Redshift Serverless sera mantido para serving e consumo orientado a produto.
+Os extractors Python leem tabelas Oracle com filtros de data/sequência, registram o checkpoint do último registro processado e são orquestrados pelo Airflow local. Esse modelo é suficiente para o volume atual e elimina dependências de infraestrutura complexa.

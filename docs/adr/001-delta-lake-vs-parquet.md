@@ -1,8 +1,8 @@
-# ADR-001: Delta Lake vs Parquet
+# ADR-001: Medallion no PostgreSQL
 
 ## Decision
 
-Usar um formato de tabela ACID no data lake, em vez de parquet solto.
+Usar arquitetura medallion (bronze / silver / gold) em schemas PostgreSQL, em vez de um data lake em arquivos ou formatos de tabela externos.
 
 ## Status
 
@@ -10,8 +10,8 @@ Accepted
 
 ## Context
 
-O projeto precisa de schema evolution, deduplicacao, time travel e reconciliacao entre batch e CDC.
+O projeto precisa de separação clara entre dados brutos, normalizados e analíticos, com contratos explícitos entre camadas, rastreabilidade e suporte a evolução de schema. A solução deve funcionar localmente sem dependências de infraestrutura externa.
 
 ## Outcome
 
-O design arquitetural permanece orientado a tabelas transacionais no lake. A estrategia definida para este projeto e usar Iceberg como formato oficial de tabela no lakehouse AWS.
+A estratégia adotada é o uso de schemas `bronze`, `silver` e `gold` no mesmo PostgreSQL local. O dbt-postgres gerencia as transformações entre camadas. Isso garante portabilidade, zero custo de infraestrutura e simplicidade operacional.

@@ -4,13 +4,13 @@
 Descrever a arquitetura fim a fim do WMS Data Platform, do sistema fonte até a camada de consumo analítico.
 
 ## Visão geral
-O projeto segue uma arquitetura orientada a lakehouse e serving analítico:
+O projeto segue uma arquitetura orientada a lakehouse local e serving analítico:
 
 1. Oracle WMS como sistema fonte
-2. extração incremental e snapshots
-3. persistência bruta em bronze
-4. normalização na silver
-5. transformação analítica com dbt
+2. extração incremental e snapshots via cx_Oracle
+3. persistência bruta em bronze (PostgreSQL)
+4. normalização na silver (PostgreSQL)
+5. transformação analítica com dbt-postgres
 6. serving para API, dashboards e agentes
 
 ## Camadas da arquitetura
@@ -26,7 +26,7 @@ Entidades prioritárias do MVP:
 
 ## 2. Ingestion
 Responsável por:
-- extrair dados da origem
+- extrair dados da origem via cx_Oracle
 - registrar checkpoints
 - produzir envelopes de ingestão
 - persistir dados na bronze
@@ -45,12 +45,7 @@ Responsável por:
 - suportar replay e auditoria
 
 Tecnologia:
-- S3
-- Apache Iceberg
-- Glue Data Catalog
-
-Bucket bronze:
-- `s3://wms-dp-dev-bronze-us-east-1-896159010925/`
+- PostgreSQL (schema `bronze`)
 
 ## 4. Silver
 Responsável por:
@@ -71,9 +66,8 @@ Responsável por:
 - preparação para consumo
 
 Tecnologia:
-- dbt
-- Glue para transformação
-- Redshift como serving analítico futuro
+- dbt Core com dbt-postgres
+- PostgreSQL como engine de transformação
 
 Modelos iniciais:
 - `stg_orders`
@@ -89,11 +83,12 @@ Responsável por:
 - disponibilizar métricas e dados de consumo
 - atender API
 - alimentar dashboards
-- servir agentes analíticos no futuro
+- servir agentes analíticos
 
 Estratégia:
-- MVP com camada mockada de acesso
-- evolução posterior para Redshift
+- marts no schema `gold` do PostgreSQL
+- dbt materializa os marts em tabelas consultáveis
+- API e Grafana consomem diretamente do gold
 
 ## 7. API
 Responsável por:
@@ -115,19 +110,17 @@ Responsável por:
 - registrar comportamento analítico
 - suportar operação e troubleshooting
 
-Ferramentas previstas:
-- CloudWatch
-- SNS
-- LangFuse
-- DeepEval
-- logs de ingestão
-- métricas de query
+Ferramentas:
+- Grafana (local Docker, porta 3000) — dashboards de pipeline e negócio
+- LangFuse — rastreamento de chamadas LLM
+- DeepEval — avaliação de agentes
+- logs de ingestão em arquivo e tabela de controle
 
 ## Princípios arquiteturais
 - camadas bem definidas
 - contratos explícitos entre estágios
 - serving desacoplado da ingestão
-- infraestrutura como código
+- arquitetura local-first via Docker Compose
 - rastreabilidade ponta a ponta
 - desenho evolutivo orientado a MVP
 
@@ -153,5 +146,4 @@ Essas entidades sustentam:
 - `docs/checkpoint-strategy.md`
 - `docs/silver-contract.md`
 - `docs/serving-strategy.md`
-- `docs/redshift-query-contract.md`
-- `docs/redshift-adapter-plan.md`
+- `docs/postgres-query-contract.md`

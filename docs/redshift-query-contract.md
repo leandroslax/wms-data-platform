@@ -1,17 +1,17 @@
-# Redshift Query Contract
+# PostgreSQL Query Contract
 
 ## Objetivo
-Definir o contrato inicial de consulta ao Redshift para a camada de serving analítico do WMS Data Platform.
+Definir o contrato inicial de consulta ao PostgreSQL gold para a camada de serving analítico do WMS Data Platform.
 
-## Papel do Redshift
-O Redshift será a camada de serving analítico para consumo por:
+## Papel do serving
+O schema `gold` do PostgreSQL será a camada de serving analítico para consumo por:
 - FastAPI
-- dashboards
+- Grafana
 - agentes analíticos
 
 ## Princípios
-- a API não consulta bronze diretamente
-- a API não consulta silver diretamente
+- a API não consulta `bronze` diretamente
+- a API não consulta `silver` diretamente
 - a API consome marts estáveis e orientados a negócio
 - o contrato da consulta deve ser explícito e versionável
 
@@ -25,7 +25,7 @@ Endpoints cobertos:
 
 ### Orders Summary
 Tabela esperada:
-- `marts.fct_orders`
+- `gold.fct_orders`
 
 Consulta lógica esperada:
 - contagem de pedidos
@@ -39,7 +39,7 @@ Resposta esperada:
 
 ### Inventory Snapshot
 Tabela esperada:
-- `marts.fct_inventory_snapshot`
+- `gold.fct_inventory_snapshot`
 
 Consulta lógica esperada:
 - contagem de SKUs
@@ -55,7 +55,7 @@ Resposta esperada:
 
 ### Movements Summary
 Tabela esperada:
-- `marts.fct_movements`
+- `gold.fct_movements`
 
 Consulta lógica esperada:
 - contagem de movimentos
@@ -86,7 +86,7 @@ select
     count(*) as total_orders,
     coalesce(sum(quantity), 0) as total_units,
     coalesce(sum(total_amount), 0) as total_revenue
-from marts.fct_orders
+from gold.fct_orders
 ```
 
 ### Inventory
@@ -96,7 +96,7 @@ select
     coalesce(sum(on_hand_qty), 0) as total_on_hand_qty,
     coalesce(sum(allocated_qty), 0) as total_allocated_qty,
     coalesce(sum(available_qty), 0) as total_available_qty
-from marts.fct_inventory_snapshot
+from gold.fct_inventory_snapshot
 ```
 
 ### Movements
@@ -104,13 +104,13 @@ from marts.fct_inventory_snapshot
 select
     count(*) as total_movements,
     coalesce(sum(quantity), 0) as total_units_moved
-from marts.fct_movements
+from gold.fct_movements
 ```
 
 ## Regras de segurança
 - não expor credenciais na aplicação
-- obter credenciais via Secrets Manager ou variáveis controladas
-- limitar permissões do usuário ou role de consulta
+- obter credenciais via variáveis de ambiente (.env)
+- limitar permissões do usuário de consulta
 - registrar falhas sem vazar detalhes sensíveis
 
 ## Regras de performance
@@ -119,7 +119,7 @@ from marts.fct_movements
 - preferir serving preparado em vez de lógica complexa na API
 
 ## Próximos passos
-1. evoluir `DataAccessService` para um contrato compatível com Redshift
-2. criar camada de configuração para conexão
-3. implementar consultas reais quando o serving estiver disponível
+1. evoluir `DataAccessService` para conexão real ao PostgreSQL gold
+2. criar camada de configuração para conexão (host, porta, schema, usuário)
+3. implementar consultas reais por endpoint
 4. conectar observabilidade da API às consultas analíticas

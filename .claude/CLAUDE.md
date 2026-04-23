@@ -3,55 +3,54 @@
 ## Project Overview
 
 WMS Data Platform is a portfolio-grade data platform built on top of Oracle WMS.
-It combines ingestion, lakehouse modeling, warehouse serving, operational APIs, and a multi-agent AI layer for grounded analytics and troubleshooting.
+It combines ingestion, medallion lakehouse modeling on PostgreSQL, analytical serving, operational APIs, and a multi-agent AI layer for grounded analytics and troubleshooting.
 
 ## Architecture Summary
 
 - Source: Oracle WMS read-only access
-- Ingestion: batch extraction plus CDC-oriented design
-- Lakehouse: S3 bronze, silver, gold
-- Transform: dbt on Glue (Spark)
-- Serving: Redshift Serverless + FastAPI
+- Ingestion: batch extraction with cx_Oracle and checkpoint
+- Lakehouse: PostgreSQL schemas — bronze, silver, gold
+- Transform: dbt Core + dbt-postgres
+- Serving: PostgreSQL gold schema + FastAPI
 - AI Layer: AnalystAgent, ResearchAgent, ReporterAgent
-- Interface: React + Vite on S3 + CloudFront
-- Ops: Airflow, CloudWatch, Grafana Cloud, LangFuse, DeepEval
+- Interface: React + Vite
+- Ops: Airflow (local Docker), Grafana (local Docker), LangFuse, DeepEval
 
 ## Directory Focus
 
 ```text
-infra/terraform/      # AWS foundation, security, networking, compute, monitoring
-pipelines/            # extraction, DAGs, handlers, checkpoints
+pipelines/            # extraction, DAGs, enrichment scripts, checkpoints
 transform/dbt_wms/    # dbt project with staging/intermediate/marts
 app/api/              # FastAPI application
 app/agents/           # WMS analytics and RAG agents
 web/                  # frontend
-.docs/                # architecture, ADRs, runbooks, images
+docker/               # Grafana and Airflow Docker configs
+docs/                 # architecture, ADRs, runbooks, images
 .claude/              # KB, agents, commands, local working memory
 ```
 
 ## Working Rules
 
-- Prefer AWS-native patterns that reinforce the architecture in `docs/architecture.md`.
+- Prefer local-first patterns consistent with Docker Compose architecture.
 - Keep all work inside this repository.
-- Use Terraform modules and environment separation for infrastructure changes.
 - Use typed Python 3.11+ code with production-grade error handling.
 - Keep documentation aligned with code changes, especially ADRs and runbooks.
 - Treat `docs/runbooks/` as future RAG content and write them clearly.
-- Preserve security posture: least privilege, KMS, WAF, CloudTrail, budgets, and secret isolation.
+- Preserve security posture: least privilege, no secrets in code, gitleaks in pre-commit.
 
 ## Preferred Build Order
 
-1. Terraform foundation and remote state
+1. Docker Compose stack (PostgreSQL + Airflow + Grafana)
 2. Extraction layer and checkpoints
 3. dbt project and model contracts
-4. API and warehouse access layer
+4. API and PostgreSQL gold access layer
 5. Agents and retrieval layer
 6. Frontend and dashboards
 7. CI/CD hardening and observability
 
 ## Main Agents
 
-- `AnalystAgent`: SQL-first analysis over marts and warehouse views
+- `AnalystAgent`: SQL-first analysis over PostgreSQL gold marts
 - `ResearchAgent`: semantic retrieval over runbooks, ADRs, incidents, and docs
 - `ReporterAgent`: synthesis of structured and semantic context into executive or operational answers
 
