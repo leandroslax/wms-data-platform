@@ -457,14 +457,13 @@ Makefile
 ✅ Enriquecimento geográfico — ViaCEP + IBGE + Open-Meteo, DAG semanal,
                                tabelas geo_reference e weather_daily,
                                JOINs nos marts geo/weather
+✅ DAGs Airflow — 6 DAGs implementadas com lógica completa
+✅ CI/CD — 9 GitHub Actions workflows (lint, dbt compile, deploy, security scan)
 
-⬜ EM ANDAMENTO / PRÓXIMOS PASSOS
+⬜ PRÓXIMOS PASSOS
 ──────────────────────────────────────────────────────────────
-⬜ DAGs Airflow — implementar lógica interna completa
 ⬜ Observabilidade — LangFuse traces nos agentes, DeepEval evals
 ⬜ Frontend React — ChatInterface + dashboards interativos
-⬜ CI/CD — GitHub Actions (lint, test, dbt compile, security scan)
-⬜ Melhorar a experiência local no Mac com mais automações Docker
 ```
 
 ---
