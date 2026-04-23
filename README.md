@@ -145,11 +145,6 @@ python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhos
 
 ### dbt Lineage
 
-![dbt lineage](docs/images/dbt_lineage.png)
-
-<details>
-<summary>Diagrama texto (Mermaid)</summary>
-
 ```mermaid
 flowchart LR
     classDef bronze fill:#2d6a2d,color:#fff,stroke:none
@@ -191,8 +186,6 @@ flowchart LR
     F2 --> M4 & M5 & M6
     F3 --> M6 & M7 & M8
 ```
-
-</details>
 
 ---
 
