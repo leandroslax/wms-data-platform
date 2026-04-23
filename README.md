@@ -508,10 +508,6 @@ Makefile
 ✅ DAGs Airflow — 6 DAGs implementadas com lógica completa
 ✅ CI/CD — 9 GitHub Actions workflows (lint, dbt compile, deploy, security scan)
 ✅ Observabilidade — LangFuse self-hosted (traces, tokens, outputs e scores DeepEval)
-
-⬜ PRÓXIMOS PASSOS
-──────────────────────────────────────────────────────────────
-⬜ Configurar créditos/modelo do judge DeepEval para rodar a suíte completa sem `*_error`
 ```
 
 ---
