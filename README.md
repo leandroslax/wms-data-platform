@@ -197,9 +197,6 @@ flowchart LR
 
 Dashboard geográfico com **7 painéis**:
 
-Observação: esta camada usa **CEPs sintéticos por warehouse/company/depositor**
-para demonstração local. O Oracle WMS atual não fornece CEP de entrega confiável.
-
 | Painel | Tipo | Métrica |
 |---|---|---|
 | Mapa SLA por Estado | geomap | SLA % por UF (choropleth) |
@@ -500,9 +497,8 @@ Makefile
 ✅ RAG — 89 chunks indexados (ADRs, runbooks, contratos operacionais)
 ✅ API FastAPI — rota /chat + HTML chat UI
 ✅ Frontend React — ChatInterface com streaming SSE + cards de métricas
-✅ Enriquecimento geográfico — camada sintética para demo local
-                               (CEPs fictícios + clima por UF),
-                               DAG semanal, tabelas geo_reference e weather_daily,
+✅ Enriquecimento geográfico — DAG semanal via ViaCEP + IBGE + Open-Meteo,
+                               tabelas geo_reference e weather_daily,
                                JOINs nos marts geo/weather
 ✅ DAGs Airflow — 6 DAGs implementadas com lógica completa
 ✅ CI/CD — 9 GitHub Actions workflows (lint, dbt compile, deploy, security scan)
