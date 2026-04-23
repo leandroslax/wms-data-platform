@@ -25,5 +25,5 @@ crewai>=0.100.0
 chainlit>=2.0.0
 
 # Observability
-langfuse>=2.50.0
+langfuse==2.51.3
 deepeval>=2.0.0

@@ -84,23 +84,6 @@ services:
     networks:
       - wms_net
 
-  # ── MinIO (S3 local) ───────────────────────────────────────
-  minio:
-    image: minio/minio:latest
-    container_name: wms-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-wmsadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-wmsadmin2026}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-    networks:
-      - wms_net
-
   # ── FastAPI (API + Agents) ────────────────────────────────
   api:
     build:
@@ -120,10 +103,12 @@ services:
       QDRANT_API_KEY: ""
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DEEPEVAL_MODEL: ${DEEPEVAL_MODEL:-gpt-4o-mini}
       CHROMA_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-local}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-local}
-      LANGFUSE_HOST: ${LANGFUSE_HOST:-http://langfuse:3000}
+      LANGFUSE_HOST: ${LANGFUSE_HOST_INTERNAL:-http://langfuse:3000}
+      LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-true}
     volumes:
       - ./app:/workspace/app
       - fastembed_cache:/root/.cache/huggingface   # modelo baixado uma vez, persiste entre recreates
@@ -255,7 +240,6 @@ services:
 volumes:
   postgres_data:
   qdrant_data:
-  minio_data:
   airflow_logs:
   airflow_plugins:
   grafana_data:

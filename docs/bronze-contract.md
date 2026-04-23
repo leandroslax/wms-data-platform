@@ -17,12 +17,12 @@ Ela deve:
 - Não perder informação da origem.
 - Preservar capacidade de auditoria e replay.
 - Padronizar envelope de ingestão.
-- Permitir evolução para Iceberg com governança.
+- Permitir evolução futura para formatos transacionais, sem bloquear a execução local.
 
 ## Formato de armazenamento
-- storage: Amazon S3
-- table format: Apache Iceberg
-- catalog: AWS Glue Data Catalog
+- storage: PostgreSQL local no Docker
+- table format: tabelas relacionais por camada (`bronze`, `silver`, `gold`)
+- catalog: schema PostgreSQL
 - granularidade inicial: por entidade
 - particionamento inicial: por data de extração
 
@@ -67,15 +67,15 @@ Identificador único da execução de ingestão.
 ### payload
 Objeto bruto contendo o registro original da origem.
 
-## Localização esperada no data lake
-Os dados bronze devem ser organizados no bucket:
+## Localização esperada no ambiente local
+Os dados bronze devem ser organizados no schema PostgreSQL:
 
-- `s3://wms-dp-dev-bronze-us-east-1-896159010925/`
+- `bronze`
 
 Estrutura lógica esperada:
-- `orders/`
-- `inventory/`
-- `movements/`
+- `bronze.orders_documento`
+- `bronze.inventory_produtoestoque`
+- `bronze.movements_entrada_saida`
 
 ## Estratégia inicial de particionamento
 Particionar por data derivada de `extraction_timestamp`.
@@ -120,6 +120,6 @@ Cada carga bronze deve ser acompanhada por:
 
 ## Próximos passos
 1. alinhar os extratores Python ao envelope da bronze
-2. definir a escrita física em Iceberg
+2. validar a escrita física no PostgreSQL local
 3. padronizar checkpoints por entidade
 4. conectar a bronze aos modelos staging do dbt

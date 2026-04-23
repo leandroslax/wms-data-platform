@@ -3,27 +3,21 @@
 Combines quantitative data from AnalystAgent with operational context
 from ResearchAgent and produces a structured, actionable final response.
 
-Every LLM call is traced in LangFuse via the CallbackHandler attached to the LLM.
+Note: LLM callbacks removed — CrewAI 0.100+ / LiteLLM is incompatible with
+LangChain CallbackHandlers and returns None silently when they are passed.
+Crew-level tracing is handled in wms_crew.py via trace_crew_run().
 """
 import os
 
 from crewai import Agent, LLM
 
-from app.agents.observability import get_callback_handler
-
 
 def build_reporter_agent() -> Agent:
     """Build and return the WMS ReporterAgent."""
-    callbacks = []
-    handler = get_callback_handler()
-    if handler is not None:
-        callbacks.append(handler)
-
     llm = LLM(
         model=f"anthropic/{os.getenv('LLM_MODEL', 'claude-haiku-4-5-20251001')}",
         temperature=0,
         api_key=os.getenv("ANTHROPIC_API_KEY"),
-        callbacks=callbacks or None,
     )
 
     return Agent(
@@ -47,7 +41,7 @@ def build_reporter_agent() -> Agent:
             "Quando a audiência for técnica, inclua a query SQL utilizada."
         ),
         llm=llm,
-        max_iter=2,
+        max_iter=5,
         verbose=True,
     )
 

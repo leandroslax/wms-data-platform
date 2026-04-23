@@ -29,6 +29,7 @@ import asyncio
 import json
 import logging
 import threading
+import uuid
 from typing import AsyncIterator
 
 from fastapi import APIRouter, HTTPException, status
@@ -145,9 +146,28 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     def _run_crew() -> None:
         try:
             from app.agents.wms_crew import build_wms_crew  # noqa: PLC0415
+            from app.agents.observability import trace_crew_run  # noqa: PLC0415
 
-            crew = build_wms_crew(request.question, step_callback=_step_callback)
-            result = crew.kickoff()
+            session_id = str(uuid.uuid4())
+            with trace_crew_run(request.question, session_id=session_id) as trace:
+                crew = build_wms_crew(request.question, step_callback=_step_callback)
+                result = crew.kickoff()
+                if trace is not None:
+                    try:
+                        trace.update(
+                            output=result.raw,
+                            status_message="success",
+                            metadata={
+                                "endpoint": "chat_stream",
+                                "token_usage": getattr(result, "token_usage", None),
+                                "tasks_output": [
+                                    getattr(t, "raw", str(t))
+                                    for t in getattr(result, "tasks_output", [])
+                                ],
+                            },
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
             asyncio.run_coroutine_threadsafe(
                 q.put({"type": "done", "answer": result.raw}),
                 loop,

@@ -3,28 +3,24 @@
 Responds to quantitative questions about warehouse operations by generating
 and executing SQL against the 8 analytical marts in the 'gold' schema.
 
-Every LLM call is traced in LangFuse via the CallbackHandler attached to the LLM.
+Note: LLM-level LangFuse tracing is NOT done via LLM callbacks because
+CrewAI 0.100+ uses LiteLLM internally, which is incompatible with LangChain
+CallbackHandlers — passing them causes the LLM to return None silently.
+Crew-level tracing is handled in wms_crew.py via trace_crew_run().
 """
 import os
 
 from crewai import Agent, LLM
 
-from app.agents.tools.postgres_tool import postgres_execute_sql
-from app.agents.observability import get_callback_handler
-
 
 def build_analyst_agent() -> Agent:
     """Build and return the WMS AnalystAgent."""
-    callbacks = []
-    handler = get_callback_handler()
-    if handler is not None:
-        callbacks.append(handler)
+    from app.agents.tools.postgres_tool import postgres_execute_sql  # noqa: PLC0415
 
     llm = LLM(
         model=f"anthropic/{os.getenv('LLM_MODEL', 'claude-haiku-4-5-20251001')}",
         temperature=0,
         api_key=os.getenv("ANTHROPIC_API_KEY"),
-        callbacks=callbacks or None,
     )
 
     return Agent(
@@ -44,7 +40,7 @@ def build_analyst_agent() -> Agent:
         ),
         tools=[postgres_execute_sql],
         llm=llm,
-        max_iter=2,
+        max_iter=5,
         verbose=True,
     )
 

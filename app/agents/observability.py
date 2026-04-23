@@ -33,6 +33,130 @@ _callback_handler = None
 _LANGFUSE_MAJOR: int | None = None
 
 
+class _LangfuseV3Trace:
+    """Small adapter that gives LangFuse 3.x spans a trace-like update API."""
+
+    def __init__(self, lf: Any) -> None:
+        self._lf = lf
+
+    def update(self, **kwargs: Any) -> None:
+        """Update the active v3 trace/span using v2-style kwargs."""
+        trace_kwargs: dict[str, Any] = {}
+        span_kwargs: dict[str, Any] = {}
+
+        for key in ("output", "metadata"):
+            if key in kwargs and kwargs[key] is not None:
+                trace_kwargs[key] = kwargs[key]
+
+        for key in ("level", "status_message"):
+            if key in kwargs and kwargs[key] is not None:
+                span_kwargs[key] = kwargs[key]
+
+        if trace_kwargs:
+            self._lf.update_current_trace(**trace_kwargs)
+        if span_kwargs:
+            self._lf.update_current_span(**span_kwargs)
+
+
+class _LangfuseV2Trace:
+    """Adapter that keeps trace and crew span in sync for LangFuse 2.x."""
+
+    def __init__(self, trace: Any, span: Any | None, question: str) -> None:
+        self._trace = trace
+        self._span = span
+        self._question = question
+        self._span_closed = False
+
+    @property
+    def id(self) -> str | None:
+        """Return the underlying LangFuse trace id."""
+        return getattr(self._trace, "id", None) or getattr(self._trace, "trace_id", None)
+
+    def score(self, **kwargs: Any) -> Any:
+        """Proxy score creation to the underlying LangFuse trace client."""
+        return self._trace.score(**kwargs)
+
+    def update(self, **kwargs: Any) -> None:
+        """Update trace and close the crew span when final output is available."""
+        self._trace.update(**kwargs)
+
+        span_kwargs = {
+            key: value
+            for key, value in kwargs.items()
+            if key in {"output", "metadata", "level", "status_message"} and value is not None
+        }
+        if self._span is not None and not self._span_closed and span_kwargs:
+            self._span.end(**span_kwargs)
+            self._span_closed = True
+
+        if kwargs.get("output") is not None:
+            self._record_generation(kwargs)
+
+    def end(self, **kwargs: Any) -> None:
+        """Close the span if the caller exits before update(output=...)."""
+        if self._span is not None and not self._span_closed:
+            self._span.end(**kwargs)
+            self._span_closed = True
+
+    def _record_generation(self, kwargs: dict[str, Any]) -> None:
+        """Create a summary generation so LangFuse dashboards have model data."""
+        metadata = kwargs.get("metadata") if isinstance(kwargs.get("metadata"), dict) else {}
+        generation_kwargs: dict[str, Any] = {
+            "name": "crew-final-answer",
+            "model": os.getenv("LLM_MODEL", "claude-haiku-4-5-20251001"),
+            "input": {"question": self._question},
+            "output": kwargs.get("output"),
+            "metadata": {"source": "crew_summary"},
+        }
+
+        token_usage = metadata.get("token_usage")
+        usage = _coerce_usage(token_usage)
+        if usage:
+            generation_kwargs["usage"] = usage
+
+        try:
+            generation = self._trace.generation(**generation_kwargs)
+            generation.end()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Could not record LangFuse generation summary: %s", exc)
+
+
+def _coerce_usage(token_usage: Any) -> dict[str, int] | None:
+    """Convert CrewAI token usage objects into LangFuse v2 usage dicts."""
+    if token_usage is None:
+        return None
+
+    if hasattr(token_usage, "model_dump"):
+        raw = token_usage.model_dump()
+    elif hasattr(token_usage, "dict"):
+        raw = token_usage.dict()
+    elif isinstance(token_usage, dict):
+        raw = token_usage
+    else:
+        raw = {
+            key: getattr(token_usage, key)
+            for key in ("prompt_tokens", "completion_tokens", "total_tokens")
+            if hasattr(token_usage, key)
+        }
+
+    if not raw:
+        return None
+
+    prompt_tokens = raw.get("prompt_tokens") or raw.get("input_tokens")
+    completion_tokens = raw.get("completion_tokens") or raw.get("output_tokens")
+    total_tokens = raw.get("total_tokens")
+
+    usage: dict[str, int] = {}
+    if prompt_tokens is not None:
+        usage["input"] = int(prompt_tokens)
+    if completion_tokens is not None:
+        usage["output"] = int(completion_tokens)
+    if total_tokens is not None:
+        usage["total"] = int(total_tokens)
+
+    return usage or None
+
+
 def _detect_langfuse_version() -> int:
     """Return the major version of the installed langfuse package (2 or 3)."""
     global _LANGFUSE_MAJOR  # noqa: PLW0603
@@ -164,11 +288,11 @@ def _create_trace(lf: Any, question: str, session_id: str | None) -> Any | None:
     if session_id:
         common_kwargs["session_id"] = session_id
 
-    # Prefer .trace() — available in both v2 and most v3 builds.
+    # LangFuse 2.x.
     if hasattr(lf, "trace"):
         return lf.trace(**common_kwargs)
 
-    # v3 fallback: start_trace() used in some 3.x pre-release builds.
+    # Older 3.x pre-release builds.
     if hasattr(lf, "start_trace"):
         return lf.start_trace(**common_kwargs)
 
@@ -199,10 +323,33 @@ def trace_crew_run(question: str, session_id: str | None = None) -> Generator:
     """
     lf = get_langfuse()
     trace = None
+    span_cm = None
 
     if lf is not None:
         try:
-            trace = _create_trace(lf, question, session_id)
+            # LangFuse 3.x removed .trace() and uses OTel-backed spans.
+            if hasattr(lf, "start_as_current_span") and not hasattr(lf, "trace"):
+                span_cm = lf.start_as_current_span(
+                    name="wms-crew-run",
+                    input={"question": question},
+                    metadata={"session_id": session_id} if session_id else None,
+                )
+                span_cm.__enter__()
+                lf.update_current_trace(
+                    name="wms-crew-run",
+                    input={"question": question},
+                    session_id=session_id,
+                    tags=["crewai", "wms"],
+                )
+                trace = _LangfuseV3Trace(lf)
+            else:
+                trace = _create_trace(lf, question, session_id)
+                if trace is not None and hasattr(trace, "span"):
+                    span = trace.span(
+                        name="crew-execution",
+                        input={"question": question},
+                    )
+                    trace = _LangfuseV2Trace(trace, span, question)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Could not create LangFuse trace: %s", exc)
 
@@ -219,6 +366,16 @@ def trace_crew_run(question: str, session_id: str | None = None) -> Generator:
                 pass
         raise
     finally:
+        if span_cm is not None:
+            try:
+                span_cm.__exit__(None, None, None)
+            except Exception:  # noqa: BLE001
+                pass
+        elif trace is not None and hasattr(trace, "end"):
+            try:
+                trace.end(status_message="finished without final output")
+            except Exception:  # noqa: BLE001
+                pass
         if lf is not None:
             try:
                 lf.flush()

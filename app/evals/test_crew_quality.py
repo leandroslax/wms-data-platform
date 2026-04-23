@@ -18,7 +18,6 @@ from __future__ import annotations
 import os
 import pytest
 
-from deepeval import evaluate
 from deepeval.metrics import AnswerRelevancyMetric, FaithfulnessMetric, BiasMetric
 from deepeval.test_case import LLMTestCase
 
@@ -35,23 +34,87 @@ BIAS_THRESHOLD       = 0.5
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 
-def _run_crew(question: str) -> tuple[str, list[str]]:
-    """Run the WMS crew and return (final_answer, retrieval_context).
+def _run_crew(question: str) -> tuple[str, list[str], str | None]:
+    """Run the WMS crew and return (final_answer, retrieval_context, trace_id).
 
     retrieval_context contains the AnalystAgent SQL output — used by
     FaithfulnessMetric to verify the final answer is grounded in data.
     """
     from app.agents.wms_crew import build_wms_crew  # noqa: PLC0415
+    from app.agents.observability import trace_crew_run  # noqa: PLC0415
 
     contexts: list[str] = []
+    trace_id: str | None = None
 
     def _capture_step(step_output) -> None:  # noqa: ANN001
         if hasattr(step_output, "result"):
             contexts.append(str(step_output.result))
 
-    crew = build_wms_crew(question, step_callback=_capture_step)
-    result = crew.kickoff()
-    return result.raw, contexts
+    with trace_crew_run(question, session_id="deepeval") as trace:
+        trace_id = getattr(trace, "id", None) if trace is not None else None
+        crew = build_wms_crew(question, step_callback=_capture_step)
+        result = crew.kickoff()
+        if trace is not None:
+            trace.update(
+                output=result.raw,
+                status_message="success",
+                metadata={"eval_suite": "deepeval"},
+            )
+
+    return result.raw, contexts, trace_id
+
+
+def _publish_langfuse_score(
+    trace_id: str | None,
+    name: str,
+    value: float,
+    reason: str | None,
+) -> None:
+    """Publish a DeepEval metric result to the matching LangFuse trace."""
+    if not trace_id or os.getenv("LANGFUSE_ENABLED", "true").lower() == "false":
+        return
+
+    try:
+        from app.agents.observability import get_langfuse  # noqa: PLC0415
+
+        lf = get_langfuse()
+        if lf is None:
+            return
+
+        lf.score(
+            trace_id=trace_id,
+            name=name,
+            value=float(value),
+            data_type="NUMERIC",
+            comment=reason,
+        )
+        lf.flush()
+    except Exception:
+        # Evals must fail only on quality gates, not observability plumbing.
+        return
+
+
+def _measure_and_publish(metric, test_case: LLMTestCase, trace_id: str | None, name: str) -> None:  # noqa: ANN001
+    """Measure a DeepEval metric and always leave a LangFuse trail on failure."""
+    try:
+        metric.measure(test_case)
+    except Exception as exc:
+        _publish_langfuse_score(
+            trace_id,
+            f"{name}_error",
+            0.0,
+            f"{type(exc).__name__}: {exc}",
+        )
+        pytest.fail(
+            f"DeepEval judge failed while measuring {name}: {type(exc).__name__}: {exc}"
+        )
+
+    _publish_langfuse_score(
+        trace_id,
+        name,
+        float(getattr(metric, "score", 0.0)),
+        getattr(metric, "reason", None),
+    )
 
 
 # ── Test cases ────────────────────────────────────────────────────────────────
@@ -72,7 +135,7 @@ def _run_crew(question: str) -> tuple[str, list[str]]:
 ])
 def test_crew_answer_relevancy(question: str, expected_keywords: list[str]) -> None:
     """A resposta final deve ser relevante para a pergunta."""
-    answer, _ = _run_crew(question)
+    answer, _, trace_id = _run_crew(question)
 
     metric = AnswerRelevancyMetric(
         threshold=RELEVANCY_THRESHOLD,
@@ -80,7 +143,7 @@ def test_crew_answer_relevancy(question: str, expected_keywords: list[str]) -> N
         include_reason=True,
     )
     test_case = LLMTestCase(input=question, actual_output=answer)
-    metric.measure(test_case)
+    _measure_and_publish(metric, test_case, trace_id, "answer_relevancy")
 
     assert metric.score >= RELEVANCY_THRESHOLD, (
         f"AnswerRelevancy abaixo do threshold ({metric.score:.2f} < {RELEVANCY_THRESHOLD})\n"
@@ -101,7 +164,7 @@ def test_crew_answer_relevancy(question: str, expected_keywords: list[str]) -> N
 ])
 def test_crew_faithfulness(question: str) -> None:
     """A resposta final deve ser fiel ao contexto retornado pelos agentes."""
-    answer, contexts = _run_crew(question)
+    answer, contexts, trace_id = _run_crew(question)
 
     if not contexts:
         pytest.skip("Nenhum contexto capturado — step_callback não acionado.")
@@ -116,7 +179,7 @@ def test_crew_faithfulness(question: str) -> None:
         actual_output=answer,
         retrieval_context=contexts,
     )
-    metric.measure(test_case)
+    _measure_and_publish(metric, test_case, trace_id, "faithfulness")
 
     assert metric.score >= FAITHFULNESS_THRESHOLD, (
         f"Faithfulness abaixo do threshold ({metric.score:.2f} < {FAITHFULNESS_THRESHOLD})\n"
@@ -130,7 +193,7 @@ def test_crew_faithfulness(question: str) -> None:
 ])
 def test_crew_no_bias(question: str) -> None:
     """A resposta final não deve conter viés injustificado."""
-    answer, _ = _run_crew(question)
+    answer, _, trace_id = _run_crew(question)
 
     metric = BiasMetric(
         threshold=BIAS_THRESHOLD,
@@ -138,7 +201,7 @@ def test_crew_no_bias(question: str) -> None:
         include_reason=True,
     )
     test_case = LLMTestCase(input=question, actual_output=answer)
-    metric.measure(test_case)
+    _measure_and_publish(metric, test_case, trace_id, "bias")
 
     assert metric.score <= BIAS_THRESHOLD, (
         f"Bias acima do threshold ({metric.score:.2f} > {BIAS_THRESHOLD})\n"

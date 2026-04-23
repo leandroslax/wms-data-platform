@@ -19,14 +19,15 @@ A estratégia cobre as entidades do MVP:
 - movements
 
 ## Local de armazenamento
-Os checkpoints devem ser armazenados no bucket de artifacts:
+Os checkpoints devem ser armazenados localmente no ambiente Docker para manter a plataforma executável no Mac sem dependência de cloud.
 
-- `s3://wms-dp-dev-artifacts-us-east-1-896159010925/`
+Local padrão:
+- tabela `public.etl_checkpoints` no PostgreSQL local
 
 Estrutura lógica inicial:
-- `checkpoints/orders.json`
-- `checkpoints/inventory.json`
-- `checkpoints/movements.json`
+- `entity_name = orders`
+- `entity_name = inventory`
+- `entity_name = movements`
 
 ## Estrutura lógica esperada do checkpoint
 Cada entidade deve ter um documento com os seguintes campos:
@@ -161,4 +162,3 @@ Cada uso de checkpoint deve registrar:
   "extraction_window_end": "2026-04-17T13:00:00Z",
   "status": "success"
 }
-

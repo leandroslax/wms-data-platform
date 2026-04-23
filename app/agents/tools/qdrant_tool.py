@@ -5,6 +5,9 @@ dag_embed_rag Airflow DAG. Documents include runbooks, ADRs, incidents
 and platform documentation.
 """
 import os
+import threading
+import json
+from urllib import request
 
 from crewai.tools import tool
 from qdrant_client import QdrantClient
@@ -22,11 +25,38 @@ VECTOR_SIZE = 768
 
 def _get_client() -> QdrantClient:
     url = os.getenv("QDRANT_URL", "http://localhost:6333")
-    api_key = os.getenv("QDRANT_API_KEY")
+    api_key = os.getenv("QDRANT_API_KEY") or None
     return QdrantClient(url=url, api_key=api_key, check_compatibility=False, timeout=10)
 
 
+def _search_points(embedding: list[float], limit: int = 5) -> list[dict]:
+    """Search points via REST endpoint compatible with local Qdrant v1.9."""
+    url = os.getenv("QDRANT_URL", "http://localhost:6333").rstrip("/")
+    api_key = os.getenv("QDRANT_API_KEY") or None
+    body = json.dumps(
+        {
+            "vector": embedding,
+            "limit": limit,
+            "with_payload": True,
+        }
+    ).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["api-key"] = api_key
+
+    req = request.Request(
+        f"{url}/collections/{COLLECTION_NAME}/points/search",
+        data=body,
+        headers=headers,
+        method="POST",
+    )
+    with request.urlopen(req, timeout=10) as response:  # noqa: S310 - URL is controlled by env
+        payload = json.loads(response.read().decode("utf-8"))
+    return payload.get("result", [])
+
+
 _embedding_model = None  # module-level cache — loaded once per process
+_embedding_lock = threading.Lock()
 
 def _embed(text: str) -> list[float]:
     """Generate embedding with FastEmbed (BAAI/bge-base-en-v1.5, 768 dims).
@@ -36,8 +66,10 @@ def _embed(text: str) -> list[float]:
     """
     global _embedding_model
     if _embedding_model is None:
-        from fastembed import TextEmbedding
-        _embedding_model = TextEmbedding(EMBEDDING_MODEL)
+        with _embedding_lock:
+            if _embedding_model is None:
+                from fastembed import TextEmbedding
+                _embedding_model = TextEmbedding(EMBEDDING_MODEL)
     return list(_embedding_model.embed([text]))[0].tolist()
 
 
@@ -84,25 +116,21 @@ def qdrant_semantic_search(question: str) -> str:
             return "Base de conhecimento vazia. Execute o DAG dag_embed_rag para indexar os runbooks e ADRs."
 
         embedding = _embed(question)
-        results = client.query_points(
-            collection_name=COLLECTION_NAME,
-            query=embedding,
-            limit=5,
-            with_payload=True,
-        ).points
+        results = _search_points(embedding, limit=5)
 
         if not results:
             return "Nenhum documento relevante encontrado na base de conhecimento operacional."
 
         docs = []
         for r in results:
-            p = r.payload or {}
+            p = r.get("payload") or {}
             doc_type = p.get("doc_type", "doc")
             title = p.get("title", "sem título")
             content = p.get("content", "")
             source = p.get("source", "")
+            score = float(r.get("score", 0.0))
             docs.append(
-                f"[{doc_type.upper()}] {title} (score: {r.score:.3f})\n"
+                f"[{doc_type.upper()}] {title} (score: {score:.3f})\n"
                 f"Fonte: {source}\n\n"
                 f"{content}"
             )

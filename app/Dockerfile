@@ -11,8 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Código da aplicação
+# Código da aplicação e pipelines (necessário para embed_docs.py e extração)
 COPY app/ ./app/
+COPY pipelines/ ./pipelines/
 
 EXPOSE 8000
 

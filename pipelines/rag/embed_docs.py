@@ -71,14 +71,15 @@ def main(docs_dir: str, qdrant_url: str, api_key: Optional[str]) -> None:
     client = QdrantClient(url=qdrant_url, api_key=api_key,
                           check_compatibility=False, timeout=30)
     existing = {c.name for c in client.get_collections().collections}
-    if COLLECTION_NAME not in existing:
-        client.create_collection(
-            collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
-        )
-        print(f"Coleção '{COLLECTION_NAME}' criada.")
-    else:
-        print(f"Coleção '{COLLECTION_NAME}' já existe — adicionando/atualizando docs.")
+    if COLLECTION_NAME in existing:
+        client.delete_collection(collection_name=COLLECTION_NAME)
+        print(f"Coleção '{COLLECTION_NAME}' removida para reindexação limpa.")
+
+    client.create_collection(
+        collection_name=COLLECTION_NAME,
+        vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+    )
+    print(f"Coleção '{COLLECTION_NAME}' criada.")
 
     # Embedding model (download na primeira execução ~130 MB)
     print(f"Carregando modelo {EMBEDDING_MODEL}...")

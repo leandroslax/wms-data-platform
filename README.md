@@ -103,7 +103,6 @@ python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhos
 | **LangFuse** | http://localhost:3001 | admin@wms.local / wmsadmin2026 |
 | **Apache Superset** | http://localhost:8088 | admin / admin |
 | Airflow | http://localhost:8080 | admin / admin |
-| MinIO Console | http://localhost:9001 | minioadmin / minioadmin |
 | Qdrant Dashboard | http://localhost:6333/dashboard | — |
 
 ---
@@ -379,8 +378,8 @@ Cada execução do crew é rastreada automaticamente no LangFuse local (`http://
 
 **O que é capturado por run:**
 - Trace completo da crew com input (pergunta) e output (resposta final)
-- Geração individual de cada agente (AnalystAgent, ResearchAgent, ReporterAgent)
-- Latência, tokens consumidos e status de cada chamada LLM
+- Span da execução do crew e geração-resumo da resposta final
+- Tokens consumidos, status da execução e metadados de cada task
 - Metadados: task outputs, session ID, tags `crewai` e `wms`
 
 **Arquitetura de instrumentação:**
@@ -389,7 +388,7 @@ Cada execução do crew é rastreada automaticamente no LangFuse local (`http://
 |---|---|---|
 | `observability.py` | `app/agents/observability.py` | Singleton LangFuse + `trace_crew_run()` context manager |
 | `wms_crew.py` | `app/agents/wms_crew.py` | Envolve cada `run_wms_crew()` com `trace_crew_run()` |
-| Agentes | `analyst_agent.py`, `research_agent.py`, `reporter_agent.py` | `CallbackHandler` no LLM — captura cada geração |
+| Agentes | `analyst_agent.py`, `research_agent.py`, `reporter_agent.py` | LLMs CrewAI sem `CallbackHandler`; tracing é feito no nível do crew para evitar incompatibilidade CrewAI/LiteLLM |
 
 O LangFuse pode ser desabilitado sem alterar código via `LANGFUSE_ENABLED=false` no `.env`.
 
@@ -408,12 +407,13 @@ Suite de evals em `app/evals/test_crew_quality.py` para medir a qualidade das re
 **Como rodar:**
 
 ```bash
-# Instalar dependências de eval
-pip install deepeval
-
-# Rodar suite completa (requer PostgreSQL + Anthropic API key)
-pytest app/evals/ -v --timeout=300
+# Rodar suite completa dentro do container da API
+docker exec wms-api pytest app/evals/ -v --timeout=300
 ```
+
+Os resultados são publicados no LangFuse como scores ligados ao trace da execução.
+Se o provedor do juiz DeepEval falhar por quota/configuração, o erro também é
+registrado como score `*_error` para não ficar invisível no dashboard.
 
 ---
 
@@ -491,7 +491,7 @@ Makefile
 ```
 ✅ CONCLUÍDO
 ──────────────────────────────────────────────────────────────
-✅ Docker Compose — PostgreSQL, Qdrant, MinIO, Airflow, Grafana,
+✅ Docker Compose — PostgreSQL, Qdrant, Airflow, Grafana,
                     Superset, FastAPI
 ✅ Bronze — init.sql, extração watermark Oracle (1 ano de dados reais)
 ✅ Silver — 7 modelos dbt (staging views + fct + dim)
@@ -499,18 +499,19 @@ Makefile
 ✅ Grafana — 3 dashboards (Operações · Pipeline/Airflow · Mapa Geográfico)
 ✅ Superset — 13 charts, dashboard reconstruído via script
 ✅ Agentes IA — AnalystAgent + ResearchAgent + ReporterAgent (end-to-end)
-✅ RAG — 86 chunks indexados (ADRs, runbooks, arquitetura)
+✅ RAG — 89 chunks indexados (ADRs, runbooks, contratos operacionais)
 ✅ API FastAPI — rota /chat + HTML chat UI
+✅ Frontend React — ChatInterface com streaming SSE + cards de métricas
 ✅ Enriquecimento geográfico — ViaCEP + IBGE + Open-Meteo, DAG semanal,
                                tabelas geo_reference e weather_daily,
                                JOINs nos marts geo/weather
 ✅ DAGs Airflow — 6 DAGs implementadas com lógica completa
 ✅ CI/CD — 9 GitHub Actions workflows (lint, dbt compile, deploy, security scan)
-✅ Observabilidade — LangFuse self-hosted (traces por agente), DeepEval eval suite
+✅ Observabilidade — LangFuse self-hosted (traces, tokens, outputs e scores DeepEval)
 
 ⬜ PRÓXIMOS PASSOS
 ──────────────────────────────────────────────────────────────
-⬜ Frontend React — ChatInterface com streaming SSE
+⬜ Configurar créditos/modelo do judge DeepEval para rodar a suíte completa sem `*_error`
 ```
 
 ---
@@ -521,7 +522,6 @@ Makefile
 |---|---|
 | Linguagem | Python 3.11+ |
 | Banco de dados | PostgreSQL 16 (bronze / silver / gold) |
-| Object storage | MinIO (local) |
 | Transformação | dbt Core 1.10 + dbt-postgres |
 | Agentes | CrewAI + Claude (Anthropic API) |
 | Vector store | Qdrant v1.9 |
@@ -554,8 +554,8 @@ docker exec wms-airflow-webserver bash -c \
 docker cp scripts/superset_docker_setup.py wms-superset:/tmp/
 docker exec -u root wms-superset python3 /tmp/superset_docker_setup.py
 
-# RAG
-python3 pipelines/rag/embed_docs.py \
+# RAG — reindexação limpa no Qdrant local
+docker compose run --rm -v "$PWD:/workspace" api python pipelines/rag/embed_docs.py \
   --docs-dir docs \
-  --qdrant-url http://localhost:6333
+  --qdrant-url http://qdrant:6333
 ```

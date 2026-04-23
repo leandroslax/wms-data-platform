@@ -39,7 +39,6 @@ up:
 	@echo "      Grafana       → http://localhost:3000  (admin/wmsadmin2026)"
 	@echo "      Airflow       → http://localhost:8080  (admin/admin)"
 	@echo "      API Docs      → http://localhost:8000/docs"
-	@echo "      MinIO         → http://localhost:9001  (wmsadmin)"
 	@echo "      Qdrant        → http://localhost:6333"
 	@echo ""
 
