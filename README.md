@@ -519,12 +519,15 @@ Makefile
 | Linguagem | Python 3.11+ |
 | Banco de dados | PostgreSQL 16 (bronze / silver / gold) |
 | Transformação | dbt Core 1.10 + dbt-postgres |
-| Agentes | CrewAI + Claude (Anthropic API) |
+| LLM | Claude (Anthropic API) |
+| Orquestração de agentes | CrewAI |
+| RAG / memória semântica | Qdrant v1.9 + FastEmbed |
 | Vector store | Qdrant v1.9 |
 | API | FastAPI + Uvicorn |
 | Orquestração | Apache Airflow 2 (LocalExecutor) |
 | Dashboards | Grafana + Apache Superset |
-| Observabilidade | LangFuse, DeepEval |
+| Observabilidade LLM | LangFuse |
+| Avaliação | DeepEval |
 | Infra local | Docker Compose |
 
 ---
