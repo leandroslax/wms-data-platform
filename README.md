@@ -2,7 +2,7 @@
 
 Plataforma de dados moderna construída sobre Oracle WMS, cobrindo o ciclo completo de engenharia de dados: extração incremental com watermark, arquitetura medallion no PostgreSQL local, transformações dbt Core, orquestração Airflow, serving via FastAPI, camada de agentes de IA conversacional com RAG, e dashboards operacionais no Grafana e Apache Superset.
 
-> A stack local roda via Docker Compose. A extração de dados reais requer acesso VPN ao Oracle WMS (host `172.31.200.25`, service `WMS`). O seed de demonstração gera 1 ano de dados sintéticos realistas sem necessidade de Oracle.
+> A stack local roda via Docker Compose. A extração de dados requer acesso VPN ao Oracle WMS (host `172.31.200.25`, service `WMS`).
 
 ---
 
@@ -19,7 +19,6 @@ flowchart TD
 
     subgraph EXT["⚙️ Extração (Python + oracledb)"]
         SCRIPT["oracle_to_postgres.py\nwatermark / snapshot"]
-        SEED["seed.py\n1 ano de dados sintéticos"]
     end
 
     subgraph BRONZE["🥉 Bronze (PostgreSQL)"]
@@ -57,7 +56,6 @@ flowchart TD
     end
 
     ORA1 & ORA2 & ORA3 & ORA4 --> SCRIPT
-    SEED --> B1 & B2 & B3 & B4
     SCRIPT --> B1 & B2 & B3 & B4
     B1 & B2 & B3 & B4 --> SILVER
     SILVER --> GOLD
@@ -76,35 +74,17 @@ flowchart TD
 
 ---
 
-## Quick Start (dados de demonstração — sem Oracle)
+## Quick Start
 
 ```bash
 git clone https://github.com/leandrolps/wms-data-platform.git
 cd wms-data-platform
 
-cp .env.example .env          # preencha ANTHROPIC_API_KEY
-
-docker compose up -d          # sobe todos os serviços
-
-# Gera 1 ano de dados sintéticos (3.703 pedidos, 37.658 movimentos)
-python3 docker/postgres/seed.py
-
-# Transforma bronze → silver → gold
-docker exec wms-airflow-webserver bash -c \
-  "dbt run --full-refresh --project-dir /opt/airflow/dbt_wms --profiles-dir /opt/airflow/dbt_wms"
-
-# Reconstrói dashboard Superset com 13 charts
-docker cp scripts/superset_docker_setup.py wms-superset:/tmp/
-docker exec -u root wms-superset python3 /tmp/superset_docker_setup.py
-```
-
-## Quick Start (dados reais — requer VPN + Oracle)
-
-```bash
 cp .env.example .env          # preencha ANTHROPIC_API_KEY + credenciais Oracle
 
 docker compose up -d
-make extract-full             # extrai 90 dias do Oracle WMS → bronze
+
+make extract-full             # extrai 1 ano do Oracle WMS → bronze
 docker exec wms-airflow-webserver bash -c \
   "dbt run --project-dir /opt/airflow/dbt_wms --profiles-dir /opt/airflow/dbt_wms"
 
@@ -131,12 +111,12 @@ python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhos
 
 ### Bronze — Extração
 
-| Tabela | Fonte Oracle | Modo | Volume (demo) |
+| Tabela | Fonte Oracle | Modo | Volume |
 |---|---|---|---|
-| `bronze.orders_documento` | `ORAINT.DOCUMENTO` | watermark (DATAEMISSAO) | 3.703 docs |
-| `bronze.movements_entrada_saida` | `WMAS.MOVIMENTOENTRADASAIDA` | watermark (DATAHISTORICO) | 37.658 movim. |
-| `bronze.inventory_produtoestoque` | `WMAS.ESTOQUEPRODUTO` | snapshot | 450 posições |
-| `bronze.products_snapshot` | `ORAINT.PRODUTO` | snapshot | 150 produtos |
+| `bronze.orders_documento` | `ORAINT.DOCUMENTO` | watermark (DATAEMISSAO) | 5.480 docs |
+| `bronze.movements_entrada_saida` | `WMAS.MOVIMENTOENTRADASAIDA` | watermark (DATAHISTORICO) | 887.619 movim. |
+| `bronze.inventory_produtoestoque` | `WMAS.ESTOQUEPRODUTO` | snapshot | 4 posições |
+| `bronze.products_snapshot` | `ORAINT.PRODUTO` | snapshot | 5.423 produtos |
 
 ### Silver — dbt Staging
 
@@ -152,16 +132,16 @@ python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhos
 
 ### Gold — 8 Marts Analíticos
 
-| Mart | Descrição | Linhas (demo) |
+| Mart | Descrição | Linhas |
 |---|---|---|
 | `mart_order_sla` | Tempo de ciclo, SLA e status por pedido — `delivered_at` derivado via proxy `estadomovimento=8` | 5.480 |
-| `mart_operator_productivity` | Ranking de operadores com índice de complexidade | 16.236 |
-| `mart_picking_performance` | Produtividade por operador e turno (picks/h) | 16.987 |
-| `mart_stockout_risk` | Projeção de ruptura de estoque por SKU | 450 |
-| `mart_inventory_health` | Cobertura, utilização e risco por produto/armazém | 450 |
-| `mart_geo_performance` | SLA por empresa/mês | 260 |
-| `mart_geo_inventory` | Cobertura de estoque por região | 27 |
-| `mart_weather_impact` | Correlação atraso × clima | 2.779 |
+| `mart_operator_productivity` | Ranking de operadores com índice de complexidade | — |
+| `mart_picking_performance` | Produtividade por operador e turno (picks/h) | — |
+| `mart_stockout_risk` | Projeção de ruptura de estoque por SKU | — |
+| `mart_inventory_health` | Cobertura, utilização e risco por produto/armazém | — |
+| `mart_geo_performance` | SLA por empresa/mês | — |
+| `mart_geo_inventory` | Cobertura de estoque por região | 5 |
+| `mart_weather_impact` | Correlação atraso × clima | — |
 
 ### dbt Lineage
 
@@ -309,30 +289,6 @@ O dashboard do Superset complementa o Grafana com uma visão mais analítica da 
 
 ---
 
-## Seed — 1 Ano de Dados Sintéticos
-
-O script `docker/postgres/seed.py` gera dados realistas sem necessidade de Oracle:
-
-| Dimensão | Volume |
-|---|---|
-| Pedidos | ~3.700 (abr/2025 → abr/2026) |
-| Movimentos | ~37.600 |
-| Inventário | 450 posições (50 SKUs × 3 armazéns × 3 empresas) |
-| Produtos | 50 SKUs (15 classe A · 20 classe B · 15 classe C) |
-| Operadores | 20 (nomes brasileiros reais) |
-| Empresas | 5 |
-
-**Padrões realistas gerados:**
-- **Sazonalidade:** Q4 (out–dez) 50% acima da média, fim de semana 70% menor
-- **Valores:** distribuição log-normal (mediana ~R$ 3k, cauda longa até R$ 100k+)
-- **SLA:** ~15% express (<12h), ~55% no prazo, ~12% atrasado, ~18% pendente (demo sintético)
-- **Produtos ABC:** classe A com alto consumo diário (15–50 un/dia), C com baixo (1–8 un/dia)
-- **Inserção em batches** de 5.000 linhas para estabilidade de memória
-
-> **Dados reais Oracle:** Com extração de 1 ano via `make pipeline-real`, a distribuição SLA real observada é ~43% express, ~8% no prazo, ~8% em risco, ~39% atrasado, ~2% pendente. O `DATAENTREGA` não é preenchido nesta instalação Oracle WMS — a data de entrega é derivada via proxy: primeiro movimento de saída (`estadomovimento = 8`) do mesmo depositante após a emissão do pedido.
-
----
-
 ## Agentes IA
 
 Stack: **CrewAI** + **Claude (Anthropic API)** + PostgreSQL gold + Qdrant RAG
@@ -427,7 +383,7 @@ dag_freshness_monitor → horário — alerta de frescor dos dados
 dag_enrich_geo        → semanal (seg 03h) — ViaCEP + IBGE + Open-Meteo → geo_reference + weather_daily
 ```
 
-> Oracle não acessível localmente: `check_oracle_conn` e `wait_for_extract` falham por design. Para rodar o dbt sem Airflow: `docker exec wms-airflow-webserver bash -c "dbt run --full-refresh --project-dir /opt/airflow/dbt_wms --profiles-dir /opt/airflow/dbt_wms"`
+> Para rodar o dbt manualmente sem Airflow: `docker exec wms-airflow-webserver bash -c "dbt run --full-refresh --project-dir /opt/airflow/dbt_wms --profiles-dir /opt/airflow/dbt_wms"`
 
 ---
 
@@ -437,7 +393,6 @@ dag_enrich_geo        → semanal (seg 03h) — ViaCEP + IBGE + Open-Meteo → g
 docker/
   postgres/
     init.sql              # cria schemas bronze, silver, gold e tabelas
-    seed.py               # gera 1 ano de dados sintéticos realistas
   grafana/
     dashboards/
       wms_operations.json # dashboard operacional WMS (15 painéis, range 30d)
@@ -468,7 +423,7 @@ pipelines/
     oracle_to_postgres.py # extrai Oracle → bronze (watermark + snapshot)
   rag/
     embed_docs.py         # indexa docs/ no Qdrant (BAAI/bge-base-en-v1.5)
-  dags/                   # 5 DAGs Airflow
+  dags/                   # 6 DAGs Airflow
   gold/                   # scripts auxiliares de geração gold
 
 docs/
@@ -491,12 +446,11 @@ Makefile
 ──────────────────────────────────────────────────────────────
 ✅ Docker Compose — PostgreSQL, Qdrant, MinIO, Airflow, Grafana,
                     Superset, FastAPI
-✅ Bronze — init.sql, seed demo (1 ano), extração watermark Oracle
+✅ Bronze — init.sql, extração watermark Oracle (1 ano de dados reais)
 ✅ Silver — 7 modelos dbt (staging views + fct + dim)
 ✅ Gold — 8 marts analíticos, dbt cross-db compat
 ✅ Grafana — 3 dashboards (Operações · Pipeline/Airflow · Mapa Geográfico)
 ✅ Superset — 13 charts, dashboard reconstruído via script
-✅ Seed 1 ano — sazonalidade, ABC, 20 operadores, SLA distribuído
 ✅ Agentes IA — AnalystAgent + ResearchAgent + ReporterAgent (end-to-end)
 ✅ RAG — 86 chunks indexados (ADRs, runbooks, arquitetura)
 ✅ API FastAPI — rota /chat + HTML chat UI
@@ -541,8 +495,11 @@ docker compose up -d          # sobe todos os serviços
 docker compose down           # para e remove containers
 docker compose logs -f        # acompanha logs
 
-# Seed e transformação
-python3 docker/postgres/seed.py   # gera 1 ano de dados sintéticos
+# Extração e transformação
+make extract-full             # extração full Oracle → bronze
+make extract                  # extração incremental
+make dbt-run                  # dbt run sobre bronze atual
+make pipeline-real            # clean-bronze + extract-full + dbt-run
 docker exec wms-airflow-webserver bash -c \
   "dbt run --full-refresh --project-dir /opt/airflow/dbt_wms \
             --profiles-dir /opt/airflow/dbt_wms"
@@ -550,12 +507,6 @@ docker exec wms-airflow-webserver bash -c \
 # Superset — reconstrói dashboard do zero
 docker cp scripts/superset_docker_setup.py wms-superset:/tmp/
 docker exec -u root wms-superset python3 /tmp/superset_docker_setup.py
-
-# Dados reais (requer VPN + Oracle)
-make extract-full             # extração full 90 dias Oracle → bronze
-make extract                  # extração incremental
-make dbt-run                  # dbt run sobre bronze atual
-make pipeline-real            # clean-bronze + extract-full + dbt-run
 
 # RAG
 python3 pipelines/rag/embed_docs.py \
