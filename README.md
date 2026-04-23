@@ -94,16 +94,16 @@ python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhos
 
 ### Serviços disponíveis após `docker compose up`
 
-| Serviço | URL | Credenciais |
+| Serviço | URL | Acesso |
 |---|---|---|
-| API FastAPI | http://localhost:8000 | — |
-| Chat (UI) | http://localhost:8000/chat | — |
-| Docs interativos | http://localhost:8000/docs | — |
-| **Grafana** | http://localhost:3000 | admin / wmsadmin2026 |
-| **LangFuse** | http://localhost:3001 | admin@wms.local / wmsadmin2026 |
-| **Apache Superset** | http://localhost:8088 | admin / admin |
-| Airflow | http://localhost:8080 | admin / admin |
-| Qdrant Dashboard | http://localhost:6333/dashboard | — |
+| API FastAPI | http://localhost:8000 | sem autenticação |
+| Chat (UI) | http://localhost:8000/chat | sem autenticação |
+| Docs interativos | http://localhost:8000/docs | sem autenticação |
+| **Grafana** | http://localhost:3000 | requer login |
+| **LangFuse** | http://localhost:3001 | requer login |
+| **Apache Superset** | http://localhost:8088 | requer login |
+| Airflow | http://localhost:8080 | requer login |
+| Qdrant Dashboard | http://localhost:6333/dashboard | sem autenticação |
 
 ---
 
