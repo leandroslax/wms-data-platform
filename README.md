@@ -236,6 +236,8 @@ Dashboard geográfico com **7 painéis**:
 
 Dashboard operacional com **15 painéis** e range padrão de **30 dias**:
 
+![Grafana — WMS Operações](docs/images/grafana_operacional.png)
+
 | Painel | Tipo | Métrica |
 |---|---|---|
 | Total de Pedidos | stat | COUNT fct_orders |
@@ -257,6 +259,8 @@ Dashboard operacional com **15 painéis** e range padrão de **30 dias**:
 ### Grafana — Pipeline & Airflow (`wms_pipeline.json`)
 
 Dashboard de monitoramento de infraestrutura com **13 painéis**:
+
+![Grafana — Pipeline & Airflow](docs/images/grafana_pipeline.png)
 
 **Seção Airflow** (datasource: `airflow` DB):
 - DAG Runs últimas 24h / Sucessos / Falhas / Em Execução
