@@ -62,6 +62,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql
       - ./docker/postgres/02_create_airflow_db.sh:/docker-entrypoint-initdb.d/02_create_airflow_db.sh
+      - ./docker/postgres/03_create_langfuse_db.sh:/docker-entrypoint-initdb.d/03_create_langfuse_db.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U wmsadmin -d wms"]
       interval: 10s
@@ -120,9 +121,9 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       CHROMA_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
-      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
-      LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-local}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-local}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-http://langfuse:3000}
     volumes:
       - ./app:/workspace/app
       - fastembed_cache:/root/.cache/huggingface   # modelo baixado uma vez, persiste entre recreates
@@ -190,6 +191,35 @@ services:
       - grafana_data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
       - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - wms_net
+
+  # ── LangFuse (observabilidade de LLM — self-hosted) ───────
+  langfuse:
+    image: langfuse/langfuse:2
+    container_name: wms-langfuse
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: postgresql://wmsadmin:${POSTGRES_PASSWORD:-wmsadmin2026}@postgres:5432/langfuse
+      NEXTAUTH_URL: http://localhost:3001
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-wms-langfuse-secret-2026}
+      SALT: ${LANGFUSE_SALT:-wms-langfuse-salt-2026}
+      # Cria projeto e credenciais automaticamente ao inicializar
+      LANGFUSE_INIT_ORG_ID: wms-org
+      LANGFUSE_INIT_ORG_NAME: WMS Platform
+      LANGFUSE_INIT_PROJECT_ID: wms-agents
+      LANGFUSE_INIT_PROJECT_NAME: WMS Agents
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-local}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-local}
+      LANGFUSE_INIT_USER_EMAIL: admin@wms.local
+      LANGFUSE_INIT_USER_NAME: WMS Admin
+      LANGFUSE_INIT_USER_PASSWORD: ${POSTGRES_PASSWORD:-wmsadmin2026}
+      TELEMETRY_ENABLED: "false"
     depends_on:
       postgres:
         condition: service_healthy

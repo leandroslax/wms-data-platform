@@ -100,6 +100,7 @@ python3 pipelines/rag/embed_docs.py --docs-dir docs --qdrant-url http://localhos
 | Chat (UI) | http://localhost:8000/chat | — |
 | Docs interativos | http://localhost:8000/docs | — |
 | **Grafana** | http://localhost:3000 | admin / wmsadmin2026 |
+| **LangFuse** | http://localhost:3001 | admin@wms.local / wmsadmin2026 |
 | **Apache Superset** | http://localhost:8088 | admin / admin |
 | Airflow | http://localhost:8080 | admin / admin |
 | MinIO Console | http://localhost:9001 | minioadmin / minioadmin |
@@ -370,6 +371,52 @@ Conteúdo indexado: ADRs de arquitetura, runbooks de recuperação de pipeline, 
 
 ---
 
+## Observabilidade
+
+### LangFuse — Tracing de LLM (self-hosted)
+
+Cada execução do crew é rastreada automaticamente no LangFuse local (`http://localhost:3001`).
+
+**O que é capturado por run:**
+- Trace completo da crew com input (pergunta) e output (resposta final)
+- Geração individual de cada agente (AnalystAgent, ResearchAgent, ReporterAgent)
+- Latência, tokens consumidos e status de cada chamada LLM
+- Metadados: task outputs, session ID, tags `crewai` e `wms`
+
+**Arquitetura de instrumentação:**
+
+| Componente | Arquivo | Função |
+|---|---|---|
+| `observability.py` | `app/agents/observability.py` | Singleton LangFuse + `trace_crew_run()` context manager |
+| `wms_crew.py` | `app/agents/wms_crew.py` | Envolve cada `run_wms_crew()` com `trace_crew_run()` |
+| Agentes | `analyst_agent.py`, `research_agent.py`, `reporter_agent.py` | `CallbackHandler` no LLM — captura cada geração |
+
+O LangFuse pode ser desabilitado sem alterar código via `LANGFUSE_ENABLED=false` no `.env`.
+
+### DeepEval — Avaliação de Qualidade
+
+Suite de evals em `app/evals/test_crew_quality.py` para medir a qualidade das respostas do crew.
+
+**Métricas:**
+
+| Métrica | Threshold | O que mede |
+|---|---|---|
+| `AnswerRelevancyMetric` | ≥ 0.7 | A resposta é relevante para a pergunta? |
+| `FaithfulnessMetric` | ≥ 0.7 | A resposta é fiel ao contexto retornado pelo SQL? |
+| `BiasMetric` | ≤ 0.5 | A resposta contém viés injustificado? |
+
+**Como rodar:**
+
+```bash
+# Instalar dependências de eval
+pip install deepeval
+
+# Rodar suite completa (requer PostgreSQL + Anthropic API key)
+pytest app/evals/ -v --timeout=300
+```
+
+---
+
 ## Orquestração Airflow
 
 6 DAGs com ordem de execução:
@@ -459,11 +506,11 @@ Makefile
                                JOINs nos marts geo/weather
 ✅ DAGs Airflow — 6 DAGs implementadas com lógica completa
 ✅ CI/CD — 9 GitHub Actions workflows (lint, dbt compile, deploy, security scan)
+✅ Observabilidade — LangFuse self-hosted (traces por agente), DeepEval eval suite
 
 ⬜ PRÓXIMOS PASSOS
 ──────────────────────────────────────────────────────────────
-⬜ Observabilidade — LangFuse traces nos agentes, DeepEval evals
-⬜ Frontend React — ChatInterface + dashboards interativos
+⬜ Frontend React — ChatInterface com streaming SSE
 ```
 
 ---

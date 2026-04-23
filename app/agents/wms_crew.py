@@ -3,6 +3,9 @@
 Entry point for the AI layer of the WMS Data Platform.
 Sequential flow: AnalystAgent → ResearchAgent → ReporterAgent.
 
+Every crew run is traced in LangFuse (self-hosted at localhost:3001).
+Tracing is optional — if LangFuse is unavailable the crew runs normally.
+
 Usage:
     from app.agents.wms_crew import run_wms_crew
 
@@ -13,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from typing import Callable, Optional
 
 from crewai import Crew, Task, Process
@@ -20,6 +24,7 @@ from crewai import Crew, Task, Process
 from app.agents.analyst_agent import build_analyst_agent
 from app.agents.research_agent import build_research_agent
 from app.agents.reporter_agent import build_reporter_agent
+from app.agents.observability import trace_crew_run
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +101,7 @@ def build_wms_crew(
         agents=[analyst, researcher, reporter],
         tasks=[analysis_task, research_task, report_task],
         process=Process.sequential,
-        memory=_MEMORY_ENABLED,   # True somente se OPENAI_API_KEY disponível
+        memory=_MEMORY_ENABLED,
         verbose=True,
     )
     if step_callback is not None:
@@ -105,15 +110,41 @@ def build_wms_crew(
     return Crew(**crew_kwargs)
 
 
-def run_wms_crew(question: str) -> str:
+def run_wms_crew(question: str, session_id: str | None = None) -> str:
     """Run the WMS 3-agent crew and return the final answer.
 
+    Every run is traced in LangFuse automatically. Tracing failures are
+    caught silently so they never break the crew execution.
+
     Args:
-        question: Natural language question about WMS operations.
+        question:   Natural language question about WMS operations.
+        session_id: Optional session ID for LangFuse grouping (e.g. FastAPI request ID).
 
     Returns:
         Structured response from the ReporterAgent.
     """
-    crew = build_wms_crew(question)
-    result = crew.kickoff()
-    return result.raw
+    if session_id is None:
+        session_id = str(uuid.uuid4())
+
+    with trace_crew_run(question, session_id=session_id) as trace:
+        crew = build_wms_crew(question)
+        result = crew.kickoff()
+        answer = result.raw
+
+        if trace is not None:
+            try:
+                trace.update(
+                    output=answer,
+                    status_message="success",
+                    metadata={
+                        "token_usage": getattr(result, "token_usage", None),
+                        "tasks_output": [
+                            getattr(t, "raw", str(t))
+                            for t in getattr(result, "tasks_output", [])
+                        ],
+                    },
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
+    return answer
