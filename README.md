@@ -429,6 +429,29 @@ dag_enrich_geo        → semanal (seg 03h) — ViaCEP + IBGE + Open-Meteo → g
 
 ---
 
+## Infraestrutura como Código
+
+Toda a infraestrutura local é definida declarativamente — sem provisionamento manual.
+
+| Arquivo | O que define |
+|---|---|
+| `docker-compose.yml` | 7 serviços: PostgreSQL, Airflow, Grafana, Superset, FastAPI, Qdrant, LangFuse |
+| `docker/postgres/init.sql` | Schemas `bronze`, `silver`, `gold` e tabelas de controle |
+| `docker/grafana/provisioning/` | Datasources e providers de dashboard (auto-provisionados) |
+| `docker/grafana/dashboards/*.json` | 3 dashboards Grafana versionados em JSON |
+| `transform/dbt_wms/profiles.yml` | Conexão dbt → PostgreSQL local |
+| `.env.example` | Template de variáveis de ambiente |
+| `Makefile` | Comandos reproduzíveis: `make dev`, `make extract`, `make dbt-run` |
+
+Subir o ambiente completo do zero:
+
+```bash
+cp .env.example .env   # preencha as credenciais
+docker compose up -d   # toda a stack em ~60s
+```
+
+---
+
 ## Estrutura do Repositório
 
 ```
