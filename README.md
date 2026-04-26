@@ -226,6 +226,10 @@ O dashboard do Superset complementa o Grafana com uma visão mais analítica da 
 
 Stack: **CrewAI** + **Claude (Anthropic API)** + PostgreSQL gold + Qdrant RAG
 
+A interface de chat expõe os três agentes diretamente ao operador — perguntas em linguagem natural são roteadas pelo `WMSCrew`, que orquestra análise SQL, busca semântica em runbooks e síntese executiva, tudo em uma única resposta estruturada.
+
+![Interface de chat com IA aplicada ao WMS](docs/images/chat_interface.png)
+
 ### Arquitetura dos Agentes
 
 ```

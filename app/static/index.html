@@ -1,13 +1,426 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WMS Data Platform</title>
-    <script type="module" crossorigin src="/assets/index-D1KnehUh.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DTz3-9rg.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WMS Analytics</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header .logo {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    header h1 { font-size: 16px; font-weight: 600; color: #f1f5f9; }
+    header .subtitle { font-size: 12px; color: #64748b; margin-left: auto; }
+    header a {
+      font-size: 12px; color: #6366f1; text-decoration: none;
+      border: 1px solid #6366f1; padding: 4px 10px; border-radius: 6px;
+    }
+    header a:hover { background: #6366f120; }
+
+    /* ── Messages ── */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .msg { display: flex; gap: 12px; max-width: 900px; }
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+    .msg.bot  { align-self: flex-start; }
+
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0; margin-top: 2px;
+    }
+    .msg.user .avatar { background: #6366f1; }
+    .msg.bot  .avatar { background: #1e293b; border: 1px solid #334155; }
+
+    .bubble {
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+      max-width: 800px;
+    }
+    .msg.user .bubble {
+      background: #6366f1;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.bot .bubble {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-bottom-left-radius: 4px;
+      color: #e2e8f0;
+    }
+
+    /* ── Markdown styles inside bot bubble ── */
+    .bubble h1, .bubble h2, .bubble h3 {
+      color: #f1f5f9; margin: 16px 0 8px; font-size: 15px;
+    }
+    .bubble h1 { font-size: 17px; border-bottom: 1px solid #2d3148; padding-bottom: 6px; }
+    .bubble table {
+      width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px;
+    }
+    .bubble th {
+      background: #0f1117; color: #94a3b8;
+      padding: 8px 12px; text-align: left; font-weight: 500;
+      border-bottom: 1px solid #2d3148;
+    }
+    .bubble td {
+      padding: 7px 12px; border-bottom: 1px solid #1e293b; color: #cbd5e1;
+    }
+    .bubble tr:hover td { background: #ffffff08; }
+    .bubble code {
+      background: #0f1117; padding: 2px 6px; border-radius: 4px;
+      font-family: 'SF Mono', monospace; font-size: 12px; color: #a5b4fc;
+    }
+    .bubble pre {
+      background: #0f1117; border: 1px solid #2d3148;
+      border-radius: 8px; padding: 14px; overflow-x: auto; margin: 12px 0;
+    }
+    .bubble pre code { background: none; padding: 0; color: #a5b4fc; font-size: 12px; }
+    .bubble ul, .bubble ol { padding-left: 20px; margin: 8px 0; }
+    .bubble li { margin: 4px 0; color: #cbd5e1; }
+    .bubble p { margin: 8px 0; color: #cbd5e1; }
+    .bubble strong { color: #f1f5f9; }
+    .bubble hr { border: none; border-top: 1px solid #2d3148; margin: 16px 0; }
+
+    /* ── Welcome screen ── */
+    #welcome {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      flex: 1; gap: 32px; padding: 40px;
+    }
+    #welcome h2 { font-size: 22px; color: #f1f5f9; text-align: center; }
+    #welcome p  { color: #64748b; font-size: 14px; text-align: center; max-width: 400px; }
+    .suggestions {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 700px;
+    }
+    .suggestion {
+      background: #1a1d27; border: 1px solid #2d3148;
+      border-radius: 10px; padding: 14px 16px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      font-size: 13px; color: #94a3b8;
+    }
+    .suggestion:hover { border-color: #6366f1; background: #6366f110; color: #e2e8f0; }
+    .suggestion strong { display: block; color: #e2e8f0; margin-bottom: 4px; font-size: 13px; }
+
+    /* ── Typing / progress indicator ── */
+    .typing { display: flex; gap: 4px; align-items: center; padding: 4px 0 8px; }
+    .typing span {
+      width: 7px; height: 7px; border-radius: 50%; background: #6366f1;
+      animation: bounce 1.2s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40% { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* Progress log inside the thinking bubble */
+    .progress-log {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .progress-item {
+      font-size: 12px;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.3s;
+    }
+    .progress-item.active { color: #a5b4fc; }
+    .progress-item.done   { color: #34d399; }
+    .progress-item .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; flex-shrink: 0;
+    }
+
+    /* ── Input area ── */
+    #input-area {
+      padding: 16px 24px 20px;
+      background: #1a1d27;
+      border-top: 1px solid #2d3148;
+    }
+    #input-form {
+      display: flex; gap: 10px; align-items: flex-end;
+      max-width: 900px; margin: 0 auto;
+    }
+    #question {
+      flex: 1; background: #0f1117; border: 1px solid #2d3148;
+      border-radius: 10px; padding: 12px 16px; color: #e2e8f0;
+      font-size: 14px; resize: none; min-height: 44px; max-height: 120px;
+      font-family: inherit; outline: none; line-height: 1.5;
+    }
+    #question:focus { border-color: #6366f1; }
+    #question::placeholder { color: #475569; }
+    #send-btn {
+      background: #6366f1; color: white; border: none;
+      border-radius: 10px; padding: 12px 20px; cursor: pointer;
+      font-size: 14px; font-weight: 500; transition: background 0.2s;
+      white-space: nowrap; height: 44px;
+    }
+    #send-btn:hover:not(:disabled) { background: #4f46e5; }
+    #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .hint { font-size: 11px; color: #475569; text-align: center; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📦</div>
+  <h1>WMS Analytics</h1>
+  <span class="subtitle">Powered by AI Agents</span>
+  <a href="http://localhost:3000" target="_blank">📊 Grafana</a>
+</header>
+
+<div id="messages">
+  <div id="welcome">
+    <div style="font-size:48px">📦</div>
+    <div>
+      <h2>Olá! Como posso ajudar?</h2>
+      <p>Faça perguntas sobre estoque, operadores, pedidos ou SLA — os agentes consultam os dados em tempo real.</p>
+    </div>
+    <div class="suggestions">
+      <div class="suggestion" onclick="ask(this.dataset.q)" data-q="Quais produtos têm maior risco de ruptura de estoque?">
+        <strong>⚠️ Risco de Ruptura</strong>
+        Quais produtos têm maior risco de ruptura de estoque?
+      </div>
+      <div class="suggestion" onclick="ask(this.dataset.q)" data-q="Qual o desempenho dos operadores esta semana?">
+        <strong>👷 Produtividade</strong>
+        Qual o desempenho dos operadores esta semana?
+      </div>
+      <div class="suggestion" onclick="ask(this.dataset.q)" data-q="Como está o SLA de entrega dos pedidos?">
+        <strong>📦 SLA de Pedidos</strong>
+        Como está o SLA de entrega dos pedidos?
+      </div>
+      <div class="suggestion" onclick="ask(this.dataset.q)" data-q="Qual a saúde geral do estoque por armazém?">
+        <strong>🏭 Saúde do Estoque</strong>
+        Qual a saúde geral do estoque por armazém?
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="input-area">
+  <form id="input-form" onsubmit="sendMessage(event)">
+    <textarea id="question" placeholder="Pergunte sobre operações, estoque, SLA, operadores..."
+      rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <button id="send-btn" type="submit">Enviar →</button>
+  </form>
+  <p class="hint">Enter para enviar · Shift+Enter para nova linha</p>
+</div>
+
+<script>
+  const messagesEl = document.getElementById('messages');
+  const questionEl = document.getElementById('question');
+  const sendBtn    = document.getElementById('send-btn');
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById('input-form').dispatchEvent(new Event('submit'));
+    }
+  }
+
+  function ask(question) {
+    questionEl.value = question;
+    document.getElementById('input-form').dispatchEvent(new Event('submit'));
+  }
+
+  function removeWelcome() {
+    const w = document.getElementById('welcome');
+    if (w) w.remove();
+  }
+
+  function addMessage(role, content, isMarkdown = false) {
+    removeWelcome();
+    const msg    = document.createElement('div');
+    msg.className = `msg ${role}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = role === 'user' ? '👤' : '🤖';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    if (isMarkdown) {
+      bubble.innerHTML = marked.parse(content);
+    } else {
+      bubble.textContent = content;
+    }
+
+    msg.appendChild(avatar);
+    msg.appendChild(bubble);
+    messagesEl.appendChild(msg);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return bubble;
+  }
+
+  // ── Progress bubble (shown while streaming) ───────────────────────────────
+
+  const STAGES = [
+    { key: 'start',    label: '🚀 Iniciando agentes…' },
+    { key: 'analyst',  label: '🔍 AnalystAgent — consultando PostgreSQL' },
+    { key: 'research', label: '📚 ResearchAgent — buscando documentos' },
+    { key: 'reporter', label: '✍️  ReporterAgent — sintetizando resposta' },
+  ];
+
+  function addProgressBubble() {
+    removeWelcome();
+    const msg = document.createElement('div');
+    msg.className = 'msg bot';
+    msg.id = 'progress-msg';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = '🤖';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    // Bouncing dots
+    bubble.innerHTML = `
+      <div class="typing"><span></span><span></span><span></span></div>
+      <div class="progress-log" id="progress-log"></div>`;
+
+    msg.appendChild(avatar);
+    msg.appendChild(bubble);
+    messagesEl.appendChild(msg);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return document.getElementById('progress-log');
+  }
+
+  function updateProgress(logEl, message, agentKey) {
+    // Mark previous items as done
+    logEl.querySelectorAll('.progress-item.active').forEach(el => {
+      el.classList.remove('active');
+      el.classList.add('done');
+      el.querySelector('.dot').textContent = '';
+      el.insertAdjacentHTML('afterbegin', '<span style="font-size:11px">✓ </span>');
+    });
+
+    const item = document.createElement('div');
+    item.className = 'progress-item active';
+    item.innerHTML = `<div class="dot"></div><span>${message}</span>`;
+    logEl.appendChild(item);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // ── Sync send (POST /chat — aguarda resposta completa) ───────────────────
+
+  // Frases de loading rotativas para manter o usuário informado
+  const LOADING_MSGS = [
+    '🔍 AnalystAgent consultando PostgreSQL…',
+    '📚 ResearchAgent buscando documentos…',
+    '✍️  ReporterAgent sintetizando resposta…',
+    '⏳ Processando dados do armazém…',
+    '🧠 Agentes trabalhando, aguarde…',
+  ];
+
+  function startLoadingCycle(bubble) {
+    let i = 0;
+    const logEl = bubble.querySelector('#progress-log');
+    // show first message immediately
+    if (logEl) {
+      const item = document.createElement('div');
+      item.className = 'progress-item active';
+      item.id = 'loading-line';
+      item.innerHTML = `<div class="dot"></div><span>${LOADING_MSGS[0]}</span>`;
+      logEl.appendChild(item);
+    }
+    return setInterval(() => {
+      i = (i + 1) % LOADING_MSGS.length;
+      const line = document.getElementById('loading-line');
+      if (line) line.querySelector('span').textContent = LOADING_MSGS[i];
+    }, 4000);
+  }
+
+  async function sendMessage(e) {
+    e.preventDefault();
+    const question = questionEl.value.trim();
+    if (!question) return;
+
+    questionEl.value = '';
+    questionEl.style.height = 'auto';
+    sendBtn.disabled = true;
+
+    addMessage('user', question);
+    const progressLog = addProgressBubble();
+    const loadingTimer = startLoadingCycle(
+      document.getElementById('progress-msg')
+    );
+
+    try {
+      // POST /chat — síncrono; aguarda a resposta completa dos agentes
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question }),
+      });
+
+      clearInterval(loadingTimer);
+      document.getElementById('progress-msg')?.remove();
+
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { detail = (await res.json()).detail || detail; } catch (_) {}
+        addMessage('bot', `❌ Erro: ${detail}`);
+        return;
+      }
+
+      const data = await res.json();
+      addMessage('bot', data.answer, true);
+
+    } catch (err) {
+      clearInterval(loadingTimer);
+      document.getElementById('progress-msg')?.remove();
+      addMessage('bot', `❌ Erro de conexão: ${err.message}`);
+    } finally {
+      sendBtn.disabled = false;
+      questionEl.focus();
+    }
+  }
+</script>
+</body>
 </html>
