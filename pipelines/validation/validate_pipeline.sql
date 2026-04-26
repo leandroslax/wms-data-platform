@@ -84,16 +84,20 @@ ORDER BY s.dia DESC
 LIMIT 20;
 
 -- ── 3. DUPLICATAS NA BRONZE ───────────────────────────────────────────────────
+-- Nota: sequenciadocumento='1' em todos os registros é comportamento do Oracle
+-- WMS local (campo SEQUENCIADOCUMENTO não preenchido). A chave real de negócio
+-- é SEQUENCIAINTEGRACAO, que alimenta order_id nos marts.
 \echo ''
-\echo '── 3. DUPLICATAS NA BRONZE ──'
+\echo '── 3. DUPLICATAS NA BRONZE (chave: sequenciaintegracao / sequenciamovimento) ──'
 
 SELECT
-    'orders_documento'  AS tabela,
-    sequenciadocumento  AS chave,
-    COUNT(*)            AS ocorrencias
+    'orders_documento'    AS tabela,
+    sequenciaintegracao   AS chave,
+    COUNT(*)              AS ocorrencias
 FROM bronze.orders_documento
-GROUP BY sequenciadocumento
+GROUP BY sequenciaintegracao
 HAVING COUNT(*) > 1
+ORDER BY ocorrencias DESC
 LIMIT 10;
 
 SELECT
@@ -103,6 +107,7 @@ SELECT
 FROM bronze.movements_entrada_saida
 GROUP BY sequenciamovimento
 HAVING COUNT(*) > 1
+ORDER BY ocorrencias DESC
 LIMIT 10;
 
 -- ── 4. ORPHAN RECORDS (movements sem order) ───────────────────────────────────
