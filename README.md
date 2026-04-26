@@ -8,7 +8,7 @@ Plataforma de dados moderna construída sobre Oracle WMS, cobrindo o ciclo compl
 
 ## Diagrama de Arquitetura
 
-![Diagrama de arquitetura do WMS Data Platform](docs/images/wms-architecture-readme.png)
+![Diagrama de arquitetura do WMS Data Platform](docs/images/wms-architecture.png)
 
 ---
 
