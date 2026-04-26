@@ -40,8 +40,8 @@ def build_analyst_agent() -> Agent:
         ),
         tools=[postgres_execute_sql],
         llm=llm,
-        max_iter=5,
-        verbose=True,
+        max_iter=2,
+        verbose=False,
     )
 
 

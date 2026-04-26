@@ -40,8 +40,8 @@ def build_research_agent() -> Agent:
         ),
         tools=[qdrant_semantic_search],
         llm=llm,
-        max_iter=5,
-        verbose=True,
+        max_iter=2,
+        verbose=False,
     )
 
 

@@ -51,30 +51,26 @@ def build_wms_crew(
 
     analysis_task = Task(
         description=(
-            f"Analise a seguinte pergunta sobre operações do WMS e responda "
-            f"com dados precisos do PostgreSQL (schema gold):\n\n"
             f"PERGUNTA: {question}\n\n"
-            "Identifique o(s) mart(s) correto(s) no schema 'gold', escreva a query SQL adequada, "
-            "execute-a e interprete os resultados. Inclua a query utilizada na resposta."
+            "Identifique o mart correto no schema 'gold', execute UMA query SQL objetiva "
+            "e interprete o resultado em português. Seja direto e conciso."
         ),
         expected_output=(
-            "Dados quantitativos do PostgreSQL com: query SQL executada, "
-            "resultados tabulados e interpretação inicial em português."
+            "Query SQL executada + resultado numérico + interpretação em 3-5 linhas."
         ),
         agent=analyst,
     )
 
     research_task = Task(
         description=(
-            f"Com base na pergunta abaixo e nos dados quantitativos levantados, "
-            f"busque contexto operacional relevante na base de conhecimento WMS:\n\n"
-            f"PERGUNTA ORIGINAL: {question}\n\n"
-            "Procure runbooks, ADRs ou incidentes passados relacionados ao tema. "
-            "Se não houver documentos relevantes, diga explicitamente."
+            f"PERGUNTA: {question}\n\n"
+            "Busque na base de conhecimento WMS (Qdrant) runbooks, ADRs ou incidentes "
+            "diretamente relacionados. Retorne no máximo 2 documentos relevantes. "
+            "Se não houver nada relevante, responda 'Nenhum documento encontrado' e pare."
         ),
         expected_output=(
-            "Documentos operacionais relevantes com título, tipo (runbook/ADR/incidente) "
-            "e conteúdo. Score de similaridade para cada documento."
+            "Até 2 documentos com título, tipo e resumo de 2-3 linhas cada. "
+            "Ou 'Nenhum documento encontrado'."
         ),
         agent=researcher,
         context=[analysis_task],
@@ -82,16 +78,13 @@ def build_wms_crew(
 
     report_task = Task(
         description=(
-            f"Sintetize os dados analíticos e o contexto operacional em uma resposta "
-            f"final clara e acionável para a pergunta:\n\n"
-            f"PERGUNTA ORIGINAL: {question}\n\n"
-            "Use o formato padrão: Resumo Executivo | Dados Chave | "
-            "Contexto Operacional | Recomendações."
+            f"PERGUNTA: {question}\n\n"
+            "Sintetize os resultados dos agentes anteriores no formato:\n"
+            "📊 Resumo Executivo | 📈 Dados Chave | 📋 Contexto Operacional | ✅ Recomendações\n"
+            "Seja objetivo — máximo 300 palavras no total."
         ),
         expected_output=(
-            "Resposta estruturada em português com: resumo executivo (2-3 linhas), "
-            "dados chave com números, contexto operacional (runbooks/ADRs), "
-            "e recomendações priorizadas com próximos passos."
+            "Resposta estruturada em português com os 4 blocos acima, máximo 300 palavras."
         ),
         agent=reporter,
         context=[analysis_task, research_task],
